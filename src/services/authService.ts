@@ -26,6 +26,12 @@ class AuthService {
     try {
       return await account.createEmailPasswordSession(email, password);
     } catch (error) {
+      const message = (error as any)?.message || '';
+      const type = (error as any)?.type || '';
+      if (type === 'user_session_already_exists' || message.includes('session is active')) {
+        // Reuse the existing session instead of failing the login flow.
+        return await account.get();
+      }
       console.error('Login error:', error);
       throw error;
     }
