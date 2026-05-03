@@ -1,16 +1,16 @@
-import React, { useState } from 'react';
-import { AuthProvider, useAuth } from '../contexts/AuthContext';
-import { LandingPage } from '../components/LandingPage';
-import { Auth } from '../components/Auth';
-import { Dashboard } from '../components/Dashboard';
-import { TasksManager } from '../components/TasksManager';
-import { SubjectsManager } from '../components/SubjectsManager';
-import { ExamsManager } from '../components/ExamsManager';
-import { PomodoroTimer } from '../components/PomodoroTimer';
-import { PomodoroProvider } from '../contexts/PomodoroContext';
-import { Button } from './components/ui/button';
-import { Toaster } from './components/ui/sonner';
-import { ThemeProvider } from 'next-themes';
+import React, { useState } from "react";
+import { AuthProvider, useAuth } from "../contexts/AuthContext";
+import { LandingPage } from "../components/LandingPage";
+import { Auth } from "../components/Auth";
+import { Dashboard } from "../components/Dashboard";
+import { TasksManager } from "../components/TasksManager";
+import { SubjectsManager } from "../components/SubjectsManager";
+import { ExamsManager } from "../components/ExamsManager";
+import { PomodoroTimer } from "../components/PomodoroTimer";
+import { PomodoroProvider } from "../contexts/PomodoroContext";
+import { Button } from "./components/ui/button";
+import { Toaster } from "./components/ui/sonner";
+import { ThemeProvider } from "next-themes";
 import {
   LayoutDashboard,
   CheckSquare,
@@ -21,11 +21,18 @@ import {
   Moon,
   Sun,
   Menu,
-  X
-} from 'lucide-react';
-import { useTheme } from 'next-themes';
+  X,
+} from "lucide-react";
+import { useTheme } from "next-themes";
 
-type Page = 'landing' | 'auth' | 'dashboard' | 'tasks' | 'subjects' | 'exams' | 'pomodoro';
+type Page =
+  | "landing"
+  | "auth"
+  | "dashboard"
+  | "tasks"
+  | "subjects"
+  | "exams"
+  | "pomodoro";
 
 const Navigation: React.FC<{
   currentPage: Page;
@@ -37,15 +44,15 @@ const Navigation: React.FC<{
 
   const handleLogout = async () => {
     await logout();
-    onPageChange('landing');
+    onPageChange("landing");
   };
 
   const navItems = [
-    { id: 'dashboard' as Page, label: 'Dashboard', icon: LayoutDashboard },
-    { id: 'tasks' as Page, label: 'Tasks', icon: CheckSquare },
-    { id: 'subjects' as Page, label: 'Subjects', icon: BookOpen },
-    { id: 'exams' as Page, label: 'Exams', icon: Calendar },
-    { id: 'pomodoro' as Page, label: 'Pomodoro', icon: Timer },
+    { id: "dashboard" as Page, label: "Dashboard", icon: LayoutDashboard },
+    { id: "subjects" as Page, label: "Subjects", icon: BookOpen },
+    { id: "tasks" as Page, label: "Tasks", icon: CheckSquare },
+    { id: "exams" as Page, label: "Exams", icon: Calendar },
+    { id: "pomodoro" as Page, label: "Pomodoro", icon: Timer },
   ];
 
   return (
@@ -54,15 +61,33 @@ const Navigation: React.FC<{
         <div className="flex justify-between h-16">
           <div className="flex items-center gap-8">
             <div className="flex items-center gap-2">
-              <div className="w-8 h-8 bg-gradient-to-br from-blue-600 to-purple-600 rounded-lg" />
-              <span className="font-bold text-xl hidden sm:block">Study Planner</span>
+              <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-600 via-indigo-600 to-purple-600 shadow-md shadow-blue-500/20 ring-1 ring-white/10 flex items-center justify-center">
+                <svg
+                  viewBox="0 0 24 24"
+                  className="w-6 h-6 text-white"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.6"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  aria-hidden="true"
+                >
+                  <path d="M4.5 8.5 12 5l7.5 3.5-7.5 3.5-7.5-3.5Z" />
+                  <path d="M7 11.5v3.5c0 1.4 2.2 2.5 5 2.5s5-1.1 5-2.5v-3.5" />
+                  <path d="M19.5 9.5v4" />
+                  <path d="M19.5 13.5c0 .9-.7 1.6-1.6 1.6" />
+                </svg>
+              </div>
+              <span className="font-bold text-xl hidden sm:block">
+                Study Planner
+              </span>
             </div>
 
             <div className="hidden md:flex gap-1">
-              {navItems.map(item => (
+              {navItems.map((item) => (
                 <Button
                   key={item.id}
-                  variant={currentPage === item.id ? 'default' : 'ghost'}
+                  variant={currentPage === item.id ? "default" : "ghost"}
                   onClick={() => {
                     onPageChange(item.id);
                     setMobileMenuOpen(false);
@@ -80,13 +105,19 @@ const Navigation: React.FC<{
             <Button
               variant="ghost"
               size="icon"
-              onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+              onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
             >
-              {theme === 'dark' ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
+              {theme === "dark" ? (
+                <Sun className="h-5 w-5" />
+              ) : (
+                <Moon className="h-5 w-5" />
+              )}
             </Button>
 
             <div className="hidden md:flex items-center gap-2">
-              <span className="text-sm text-muted-foreground">{user?.name}</span>
+              <span className="text-sm text-muted-foreground">
+                {user?.name}
+              </span>
               <Button variant="ghost" size="icon" onClick={handleLogout}>
                 <LogOut className="h-5 w-5" />
               </Button>
@@ -98,7 +129,11 @@ const Navigation: React.FC<{
               className="md:hidden"
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
             >
-              {mobileMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+              {mobileMenuOpen ? (
+                <X className="h-5 w-5" />
+              ) : (
+                <Menu className="h-5 w-5" />
+              )}
             </Button>
           </div>
         </div>
@@ -107,10 +142,10 @@ const Navigation: React.FC<{
       {mobileMenuOpen && (
         <div className="md:hidden border-t border-gray-200 dark:border-gray-800">
           <div className="px-4 py-4 space-y-2">
-            {navItems.map(item => (
+            {navItems.map((item) => (
               <Button
                 key={item.id}
-                variant={currentPage === item.id ? 'default' : 'ghost'}
+                variant={currentPage === item.id ? "default" : "ghost"}
                 onClick={() => {
                   onPageChange(item.id);
                   setMobileMenuOpen(false);
@@ -123,7 +158,9 @@ const Navigation: React.FC<{
             ))}
             <div className="pt-4 border-t border-gray-200 dark:border-gray-800">
               <div className="flex items-center justify-between">
-                <span className="text-sm text-muted-foreground">{user?.name}</span>
+                <span className="text-sm text-muted-foreground">
+                  {user?.name}
+                </span>
                 <Button variant="ghost" size="sm" onClick={handleLogout}>
                   <LogOut className="h-4 w-4 mr-2" />
                   Logout
@@ -139,12 +176,12 @@ const Navigation: React.FC<{
 
 const AppContent: React.FC = () => {
   const { user, loading } = useAuth();
-  const [currentPage, setCurrentPage] = useState<Page>('landing');
+  const [currentPage, setCurrentPage] = useState<Page>("landing");
 
   // Auto-redirect to dashboard when user logs in
   React.useEffect(() => {
-    if (user && (currentPage === 'landing' || currentPage === 'auth')) {
-      setCurrentPage('dashboard');
+    if (user && (currentPage === "landing" || currentPage === "auth")) {
+      setCurrentPage("dashboard");
     }
   }, [user, currentPage]);
 
@@ -160,24 +197,24 @@ const AppContent: React.FC = () => {
   }
 
   // Show landing page if not logged in and on landing page
-  if (!user && currentPage === 'landing') {
-    return <LandingPage onGetStarted={() => setCurrentPage('auth')} />;
+  if (!user && currentPage === "landing") {
+    return <LandingPage onGetStarted={() => setCurrentPage("auth")} />;
   }
 
   // Show auth page if not logged in and user clicked get started
   if (!user) {
-    return <Auth onBackToHome={() => setCurrentPage('landing')} />;
+    return <Auth onBackToHome={() => setCurrentPage("landing")} />;
   }
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
       <Navigation currentPage={currentPage} onPageChange={setCurrentPage} />
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {currentPage === 'dashboard' && <Dashboard />}
-        {currentPage === 'tasks' && <TasksManager />}
-        {currentPage === 'subjects' && <SubjectsManager />}
-        {currentPage === 'exams' && <ExamsManager />}
-        {currentPage === 'pomodoro' && <PomodoroTimer />}
+        {currentPage === "dashboard" && <Dashboard />}
+        {currentPage === "tasks" && <TasksManager />}
+        {currentPage === "subjects" && <SubjectsManager />}
+        {currentPage === "exams" && <ExamsManager />}
+        {currentPage === "pomodoro" && <PomodoroTimer />}
       </main>
     </div>
   );

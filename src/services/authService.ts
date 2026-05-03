@@ -1,5 +1,5 @@
-import { ID } from 'appwrite';
-import { account } from '../lib/appwrite';
+import { ID } from "appwrite";
+import { account } from "../lib/appwrite";
 
 export interface User {
   $id: string;
@@ -16,12 +16,15 @@ class AuthService {
       await this.login(email, password);
       return user as User;
     } catch (error) {
-      const message = (error as any)?.message || '';
-      const type = (error as any)?.type || '';
-      if (type === 'user_session_already_exists' || message.includes('session is active')) {
-        return await account.get() as User;
+      const message = (error as any)?.message || "";
+      const type = (error as any)?.type || "";
+      if (
+        type === "user_session_already_exists" ||
+        message.includes("session is active")
+      ) {
+        return (await account.get()) as User;
       }
-      console.error('Registration error:', error);
+      console.error("Registration error:", error);
       throw error;
     }
   }
@@ -31,13 +34,16 @@ class AuthService {
     try {
       return await account.createEmailPasswordSession(email, password);
     } catch (error) {
-      const message = (error as any)?.message || '';
-      const type = (error as any)?.type || '';
-      if (type === 'user_session_already_exists' || message.includes('session is active')) {
+      const message = (error as any)?.message || "";
+      const type = (error as any)?.type || "";
+      if (
+        type === "user_session_already_exists" ||
+        message.includes("session is active")
+      ) {
         // Reuse the existing session instead of failing the login flow.
         return await account.get();
       }
-      console.error('Login error:', error);
+      console.error("Login error:", error);
       throw error;
     }
   }
@@ -45,9 +51,9 @@ class AuthService {
   // Logout user
   async logout(): Promise<void> {
     try {
-      await account.deleteSession('current');
+      await account.deleteSession("current");
     } catch (error) {
-      console.error('Logout error:', error);
+      console.error("Logout error:", error);
       throw error;
     }
   }
@@ -55,7 +61,7 @@ class AuthService {
   // Get current user
   async getCurrentUser(): Promise<User | null> {
     try {
-      return await account.get() as User;
+      return (await account.get()) as User;
     } catch (error) {
       return null;
     }
