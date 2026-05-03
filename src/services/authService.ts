@@ -16,6 +16,11 @@ class AuthService {
       await this.login(email, password);
       return user as User;
     } catch (error) {
+      const message = (error as any)?.message || '';
+      const type = (error as any)?.type || '';
+      if (type === 'user_session_already_exists' || message.includes('session is active')) {
+        return await account.get() as User;
+      }
       console.error('Registration error:', error);
       throw error;
     }
