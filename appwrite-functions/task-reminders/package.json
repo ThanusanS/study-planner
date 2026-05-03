@@ -1,0 +1,12 @@
+{
+  "name": "task-reminders",
+  "version": "1.0.0",
+  "description": "Appwrite function to send task reminders",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"No tests specified\""
+  },
+  "dependencies": {
+    "node-appwrite": "^13.0.0"
+  }
+}
