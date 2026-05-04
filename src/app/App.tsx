@@ -56,15 +56,15 @@ const Navigation: React.FC<{
   ];
 
   return (
-    <nav className="bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800">
+    <nav className="sticky top-0 z-50 bg-white dark:bg-slate-950 border-b border-border">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between h-16">
           <div className="flex items-center gap-8">
             <div className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-600 via-indigo-600 to-purple-600 shadow-md shadow-blue-500/20 ring-1 ring-white/10 flex items-center justify-center">
+              <div className="w-8 h-8 rounded bg-primary flex items-center justify-center">
                 <svg
                   viewBox="0 0 24 24"
-                  className="w-6 h-6 text-white"
+                  className="w-5 h-5 text-primary-foreground"
                   fill="none"
                   stroke="currentColor"
                   strokeWidth="1.6"
@@ -78,7 +78,7 @@ const Navigation: React.FC<{
                   <path d="M19.5 13.5c0 .9-.7 1.6-1.6 1.6" />
                 </svg>
               </div>
-              <span className="font-bold text-xl hidden sm:block">
+              <span className="font-semibold text-xl tracking-tight hidden sm:block">
                 Study Planner
               </span>
             </div>
@@ -140,7 +140,7 @@ const Navigation: React.FC<{
       </div>
 
       {mobileMenuOpen && (
-        <div className="md:hidden border-t border-gray-200 dark:border-gray-800">
+        <div className="md:hidden border-t border-border bg-white dark:bg-slate-950">
           <div className="px-4 py-4 space-y-2">
             {navItems.map((item) => (
               <Button
@@ -156,7 +156,7 @@ const Navigation: React.FC<{
                 {item.label}
               </Button>
             ))}
-            <div className="pt-4 border-t border-gray-200 dark:border-gray-800">
+            <div className="pt-4 border-t border-border">
               <div className="flex items-center justify-between">
                 <span className="text-sm text-muted-foreground">
                   {user?.name}
@@ -207,9 +207,9 @@ const AppContent: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
+    <div className="min-h-screen bg-slate-50 dark:bg-slate-950">
       <Navigation currentPage={currentPage} onPageChange={setCurrentPage} />
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
         {currentPage === "dashboard" && <Dashboard />}
         {currentPage === "tasks" && <TasksManager />}
         {currentPage === "subjects" && <SubjectsManager />}

@@ -8,10 +8,18 @@ import React, {
 import { useAuth } from "./AuthContext";
 import databaseService from "../services/databaseService";
 
-const FOCUS_TIME = 25 * 60;
-const BREAK_TIME = 5 * 60;
+const DEFAULT_SETTINGS = {
+  focusMinutes: 25,
+  breakMinutes: 5,
+  longBreakMinutes: 15,
+  cyclesBeforeLongBreak: 4,
+  dailyGoal: 4,
+};
+
+const SETTINGS_STORAGE_KEY = "pomodoroSettings";
 
 type TimerMode = "focus" | "break";
+type BreakType = "short" | "long";
 
 interface PomodoroContextValue {
   mode: TimerMode;
@@ -19,7 +27,10 @@ interface PomodoroContextValue {
   isRunning: boolean;
   selectedSubject: string;
   lastCompletedAt: number | null;
+  breakType: BreakType;
+  settings: typeof DEFAULT_SETTINGS;
   setSelectedSubject: (value: string) => void;
+  updateSettings: (settings: typeof DEFAULT_SETTINGS) => void;
   start: () => void;
   pause: () => void;
   reset: () => void;
@@ -34,7 +45,10 @@ export const PomodoroProvider: React.FC<{ children: React.ReactNode }> = ({
 }) => {
   const { user } = useAuth();
   const [mode, setMode] = useState<TimerMode>("focus");
-  const [timeLeft, setTimeLeft] = useState(FOCUS_TIME);
+  const [settings, setSettings] = useState(DEFAULT_SETTINGS);
+  const [breakType, setBreakType] = useState<BreakType>("short");
+  const [cycleCount, setCycleCount] = useState(0);
+  const [timeLeft, setTimeLeft] = useState(DEFAULT_SETTINGS.focusMinutes * 60);
   const [isRunning, setIsRunning] = useState(false);
   const [selectedSubject, setSelectedSubject] = useState("");
   const [sessionStart, setSessionStart] = useState<Date | null>(null);
@@ -43,6 +57,9 @@ export const PomodoroProvider: React.FC<{ children: React.ReactNode }> = ({
   const modeRef = useRef(mode);
   const sessionStartRef = useRef<Date | null>(sessionStart);
   const selectedSubjectRef = useRef(selectedSubject);
+  const settingsRef = useRef(settings);
+  const breakTypeRef = useRef(breakType);
+  const cycleCountRef = useRef(cycleCount);
 
   useEffect(() => {
     modeRef.current = mode;
@@ -57,14 +74,59 @@ export const PomodoroProvider: React.FC<{ children: React.ReactNode }> = ({
   }, [selectedSubject]);
 
   useEffect(() => {
+    settingsRef.current = settings;
+  }, [settings]);
+
+  useEffect(() => {
+    breakTypeRef.current = breakType;
+  }, [breakType]);
+
+  useEffect(() => {
+    cycleCountRef.current = cycleCount;
+  }, [cycleCount]);
+
+  useEffect(() => {
+    const stored = window.localStorage.getItem(SETTINGS_STORAGE_KEY);
+    if (!stored) return;
+    try {
+      const parsed = JSON.parse(stored) as typeof DEFAULT_SETTINGS;
+      const next = {
+        ...DEFAULT_SETTINGS,
+        ...parsed,
+      };
+      setSettings(next);
+      setTimeLeft(next.focusMinutes * 60);
+    } catch (error) {
+      console.error("Error reading pomodoro settings:", error);
+    }
+  }, []);
+
+  useEffect(() => {
     if (!user) {
       setIsRunning(false);
       setMode("focus");
-      setTimeLeft(FOCUS_TIME);
+      setTimeLeft(settingsRef.current.focusMinutes * 60);
       setSelectedSubject("");
       setSessionStart(null);
+      setBreakType("short");
+      setCycleCount(0);
     }
   }, [user]);
+
+  const getDurationSeconds = (
+    nextMode: TimerMode,
+    nextBreakType: BreakType,
+    nextSettings: typeof DEFAULT_SETTINGS,
+  ) => {
+    if (nextMode === "focus") {
+      return nextSettings.focusMinutes * 60;
+    }
+    return (
+      (nextBreakType === "long"
+        ? nextSettings.longBreakMinutes
+        : nextSettings.breakMinutes) * 60
+    );
+  };
 
   const handleTimerComplete = async () => {
     setIsRunning(false);
@@ -88,13 +150,26 @@ export const PomodoroProvider: React.FC<{ children: React.ReactNode }> = ({
         console.error("Error saving session:", error);
       }
 
+      const nextCycleCount = cycleCountRef.current + 1;
+      const shouldLongBreak =
+        nextCycleCount >= settingsRef.current.cyclesBeforeLongBreak;
+
       setSessionStart(null);
       setMode("break");
-      setTimeLeft(BREAK_TIME);
+      setBreakType(shouldLongBreak ? "long" : "short");
+      setTimeLeft(
+        getDurationSeconds(
+          "break",
+          shouldLongBreak ? "long" : "short",
+          settingsRef.current,
+        ),
+      );
+      setCycleCount(shouldLongBreak ? 0 : nextCycleCount);
       setLastCompletedAt(Date.now());
     } else {
       setMode("focus");
-      setTimeLeft(FOCUS_TIME);
+      setBreakType("short");
+      setTimeLeft(getDurationSeconds("focus", "short", settingsRef.current));
       setLastCompletedAt(Date.now());
     }
 
@@ -144,7 +219,27 @@ export const PomodoroProvider: React.FC<{ children: React.ReactNode }> = ({
   const reset = () => {
     setIsRunning(false);
     setSessionStart(null);
-    setTimeLeft(modeRef.current === "focus" ? FOCUS_TIME : BREAK_TIME);
+    setTimeLeft(
+      getDurationSeconds(
+        modeRef.current,
+        breakTypeRef.current,
+        settingsRef.current,
+      ),
+    );
+  };
+
+  const updateSettings = (nextSettings: typeof DEFAULT_SETTINGS) => {
+    setSettings(nextSettings);
+    window.localStorage.setItem(
+      SETTINGS_STORAGE_KEY,
+      JSON.stringify(nextSettings),
+    );
+
+    if (!isRunning) {
+      setTimeLeft(
+        getDurationSeconds(modeRef.current, breakTypeRef.current, nextSettings),
+      );
+    }
   };
 
   return (
@@ -155,7 +250,10 @@ export const PomodoroProvider: React.FC<{ children: React.ReactNode }> = ({
         isRunning,
         selectedSubject,
         lastCompletedAt,
+        breakType,
+        settings,
         setSelectedSubject,
+        updateSettings,
         start,
         pause,
         reset,
