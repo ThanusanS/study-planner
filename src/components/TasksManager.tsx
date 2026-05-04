@@ -1117,7 +1117,7 @@ export const TasksManager: React.FC = () => {
 
         <TabsContent value="table">
           <Card>
-            <CardContent className="py-4">
+            <CardContent className="py-4 overflow-x-auto">
               <Table className="min-w-[900px]">
                 <TableHeader>
                   <TableRow>
