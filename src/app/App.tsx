@@ -7,6 +7,7 @@ import { TasksManager } from "../components/TasksManager";
 import { SubjectsManager } from "../components/SubjectsManager";
 import { ExamsManager } from "../components/ExamsManager";
 import { PomodoroTimer } from "../components/PomodoroTimer";
+import { AiQuizGenerator } from "../components/AiQuizGenerator";
 import { PomodoroProvider } from "../contexts/PomodoroContext";
 import { Button } from "./components/ui/button";
 import { Toaster } from "./components/ui/sonner";
@@ -17,6 +18,7 @@ import {
   BookOpen,
   Calendar,
   Timer,
+  Sparkles,
   LogOut,
   Moon,
   Sun,
@@ -32,7 +34,8 @@ type Page =
   | "tasks"
   | "subjects"
   | "exams"
-  | "pomodoro";
+  | "pomodoro"
+  | "ai-quiz";
 
 const Sidebar: React.FC<{
   currentPage: Page;
@@ -53,6 +56,7 @@ const Sidebar: React.FC<{
     { id: "tasks" as Page, label: "Tasks", icon: CheckSquare },
     { id: "exams" as Page, label: "Exams", icon: Calendar },
     { id: "pomodoro" as Page, label: "Pomodoro", icon: Timer },
+    { id: "ai-quiz" as Page, label: "AI Quiz", icon: Sparkles },
   ];
 
   return (
@@ -218,6 +222,7 @@ const AppContent: React.FC = () => {
           {currentPage === "subjects" && <SubjectsManager />}
           {currentPage === "exams" && <ExamsManager />}
           {currentPage === "pomodoro" && <PomodoroTimer />}
+          {currentPage === "ai-quiz" && <AiQuizGenerator />}
         </div>
       </main>
     </div>
