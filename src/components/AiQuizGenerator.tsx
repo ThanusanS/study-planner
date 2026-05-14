@@ -1,10 +1,25 @@
 import React, { useState } from "react";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../app/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "../app/components/ui/card";
 import { Button } from "../app/components/ui/button";
 import { Input } from "../app/components/ui/input";
 import { Textarea } from "../app/components/ui/textarea";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "../app/components/ui/tabs";
-import { Alert, AlertDescription, AlertTitle } from "../app/components/ui/alert";
+import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from "../app/components/ui/tabs";
+import {
+  Alert,
+  AlertDescription,
+  AlertTitle,
+} from "../app/components/ui/alert";
 import { Loader2, Sparkles } from "lucide-react";
 import { evaluateQuiz, generateQuiz } from "../services/aiQuizService";
 
@@ -13,7 +28,9 @@ export const AiQuizGenerator: React.FC = () => {
   const [topic, setTopic] = useState("");
   const [difficulty, setDifficulty] = useState("Intermediate");
   const [questionCount, setQuestionCount] = useState(8);
-  const [questionType, setQuestionType] = useState<"mcq" | "short" | "mixed">("mixed");
+  const [questionType, setQuestionType] = useState<"mcq" | "short" | "mixed">(
+    "mixed",
+  );
   const [quizText, setQuizText] = useState("");
   const [studentAnswers, setStudentAnswers] = useState("");
   const [result, setResult] = useState<string | null>(null);
@@ -62,9 +79,20 @@ export const AiQuizGenerator: React.FC = () => {
       });
       setResult(output || "No response returned from the model.");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to evaluate answers.");
+      setError(
+        err instanceof Error ? err.message : "Failed to evaluate answers.",
+      );
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleModeChange = (newMode: string) => {
+    setMode(newMode);
+    // Auto-populate quiz content when switching to evaluate tab
+    if (newMode === "evaluate" && result) {
+      setQuizText(result);
+      setStudentAnswers(""); // Clear old student answers for new quiz
     }
   };
 
@@ -79,9 +107,12 @@ export const AiQuizGenerator: React.FC = () => {
               <Sparkles className="h-5 w-5" />
             </div>
             <div>
-              <CardTitle className="text-2xl sm:text-3xl">AI Quiz Studio</CardTitle>
+              <CardTitle className="text-2xl sm:text-3xl">
+                AI Quiz Studio
+              </CardTitle>
               <CardDescription className="text-sm sm:text-base">
-                Build exam-ready quizzes or evaluate answers with detailed teacher-style feedback.
+                Build exam-ready quizzes and evaluate answers with detailed
+                teacher-style feedback.
               </CardDescription>
             </div>
           </div>
@@ -99,7 +130,7 @@ export const AiQuizGenerator: React.FC = () => {
         </CardHeader>
       </Card>
 
-      <Tabs value={mode} onValueChange={setMode} className="space-y-4">
+      <Tabs value={mode} onValueChange={handleModeChange} className="space-y-4">
         <TabsList className="w-full sm:w-auto">
           <TabsTrigger value="generate">Quiz Generation</TabsTrigger>
           <TabsTrigger value="evaluate">Answer Evaluation</TabsTrigger>
@@ -111,7 +142,8 @@ export const AiQuizGenerator: React.FC = () => {
               <CardHeader>
                 <CardTitle>Generate a quiz</CardTitle>
                 <CardDescription>
-                  Provide a topic and tuning options. The output will not include answers.
+                  Provide a topic and tuning options. The output will not
+                  include answers.
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
@@ -133,7 +165,9 @@ export const AiQuizGenerator: React.FC = () => {
                     />
                   </div>
                   <div className="space-y-2">
-                    <label className="text-sm font-medium">Question count</label>
+                    <label className="text-sm font-medium">
+                      Question count
+                    </label>
                     <Input
                       type="number"
                       min={1}
@@ -141,12 +175,16 @@ export const AiQuizGenerator: React.FC = () => {
                       value={questionCount}
                       onChange={(event) => {
                         const nextValue = Number(event.target.value);
-                        setQuestionCount(Number.isNaN(nextValue) ? 1 : nextValue);
+                        setQuestionCount(
+                          Number.isNaN(nextValue) ? 1 : nextValue,
+                        );
                       }}
                     />
                   </div>
                   <div className="space-y-2">
-                    <label className="text-sm font-medium">Question types</label>
+                    <label className="text-sm font-medium">
+                      Question types
+                    </label>
                     <div className="flex flex-wrap gap-2">
                       <Button
                         type="button"
@@ -157,14 +195,18 @@ export const AiQuizGenerator: React.FC = () => {
                       </Button>
                       <Button
                         type="button"
-                        variant={questionType === "short" ? "default" : "outline"}
+                        variant={
+                          questionType === "short" ? "default" : "outline"
+                        }
                         onClick={() => setQuestionType("short")}
                       >
                         Short Answer
                       </Button>
                       <Button
                         type="button"
-                        variant={questionType === "mixed" ? "default" : "outline"}
+                        variant={
+                          questionType === "mixed" ? "default" : "outline"
+                        }
                         onClick={() => setQuestionType("mixed")}
                       >
                         Mixed
@@ -174,7 +216,9 @@ export const AiQuizGenerator: React.FC = () => {
                 </div>
                 <div className="flex flex-wrap items-center gap-3">
                   <Button onClick={handleGenerate} disabled={loading}>
-                    {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                    {loading ? (
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    ) : null}
                     Generate Quiz
                   </Button>
                   <span className="text-xs text-muted-foreground">
@@ -192,7 +236,10 @@ export const AiQuizGenerator: React.FC = () => {
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-3 text-sm text-muted-foreground">
-                <p>Specify the course, board, or unit for sharper difficulty control.</p>
+                <p>
+                  Specify the course, board, or unit for sharper difficulty
+                  control.
+                </p>
                 <p>Use mixed mode for balanced practice and revision.</p>
                 <p>Generate 6-10 questions for faster review sessions.</p>
               </CardContent>
@@ -205,7 +252,8 @@ export const AiQuizGenerator: React.FC = () => {
             <CardHeader>
               <CardTitle>Evaluate answers</CardTitle>
               <CardDescription>
-                Paste the quiz and the student's responses. You will get scores and feedback.
+                Paste the quiz and the student's responses. You will get scores
+                and feedback.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -231,7 +279,9 @@ export const AiQuizGenerator: React.FC = () => {
               </div>
               <div className="flex flex-wrap items-center gap-3">
                 <Button onClick={handleEvaluate} disabled={loading}>
-                  {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                  {loading ? (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  ) : null}
                   Evaluate Answers
                 </Button>
                 <span className="text-xs text-muted-foreground">
@@ -251,15 +301,39 @@ export const AiQuizGenerator: React.FC = () => {
       )}
 
       {result && (
-        <Card className="border-border/60">
+        <Card className="border-border/60 shadow-lg">
           <CardHeader>
-            <CardTitle>AI Output</CardTitle>
-            <CardDescription>Review, edit, or copy the result as needed.</CardDescription>
+            <CardTitle className="text-2xl">AI Output</CardTitle>
           </CardHeader>
-          <CardContent>
-            <pre className="whitespace-pre-wrap text-sm leading-relaxed text-foreground">
-              {result}
-            </pre>
+          <CardContent className="bg-muted/40 rounded-lg p-6 space-y-0">
+            <div className="space-y-0 leading-8 text-base font-sans">
+              {result.split("\n").map((line, idx) => {
+                const isQuestionNumber = /^Q\d+\./.test(line);
+                const isBoldLabel =
+                  /^(Score:|Q\d+:|Your Answer:|Correct Answer:|Result:|Explanation:|Final Feedback:|Strengths:|Weak Areas:|Study Suggestion:|Quiz Topic:|-\s+(Strengths|Weak Areas|Study Suggestion):)/.test(
+                    line,
+                  );
+
+                return (
+                  <div
+                    key={idx}
+                    className="min-h-8 py-1 px-4 hover:bg-primary/5 transition-colors rounded"
+                  >
+                    <div
+                      className={`${
+                        isQuestionNumber
+                          ? "font-bold text-primary text-lg"
+                          : isBoldLabel
+                            ? "font-semibold text-foreground"
+                            : "text-foreground"
+                      }`}
+                    >
+                      {line || "\u00A0"}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
           </CardContent>
         </Card>
       )}
