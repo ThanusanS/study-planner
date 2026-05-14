@@ -119,42 +119,55 @@ const getGeminiConfig = () => {
   return import.meta.env.VITE_GEMINI_API_KEY as string | undefined;
 };
 
+const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+const GEMINI_MODELS = [
+  "gemini-2.5-flash",
+  "gemini-2.0-flash",
+  "gemini-2.0-flash-lite",
+];
+
 const callAIProvider = async (content: string) => {
   const geminiApiKey = getGeminiConfig();
 
   if (geminiApiKey && geminiApiKey.trim() !== "") {
-    // Use Official direct Gemini API
+    // Use Official direct Gemini API — try multiple models to handle per-model rate limits
     const genAI = new GoogleGenerativeAI(geminiApiKey);
+    let lastError: unknown = null;
 
-    try {
-      const model = genAI.getGenerativeModel({
-        model: "gemini-2.5-flash",
-        systemInstruction: SYSTEM_PROMPT,
-      });
+    for (let i = 0; i < GEMINI_MODELS.length; i++) {
+      const modelName = GEMINI_MODELS[i];
+      try {
+        console.log(`Trying Gemini model: ${modelName}...`);
+        const model = genAI.getGenerativeModel({
+          model: modelName,
+          systemInstruction: SYSTEM_PROMPT,
+        });
 
-      const result = await model.generateContent({
-        contents: [{ role: "user", parts: [{ text: content }] }],
-      });
+        const result = await model.generateContent({
+          contents: [{ role: "user", parts: [{ text: content }] }],
+        });
 
-      return result.response.text();
-    } catch (error) {
-      console.warn(
-        "Failed with gemini-2.5-flash, trying gemini-1.5-flash-latest...",
-        error,
-      );
-
-      // Fallback to older gemini if gemini-2.5-flash errors out
-      const workingModel = genAI.getGenerativeModel({
-        model: "gemini-1.5-flash-latest",
-        systemInstruction: SYSTEM_PROMPT,
-      });
-
-      const result = await workingModel.generateContent({
-        contents: [{ role: "user", parts: [{ text: content }] }],
-      });
-
-      return result.response.text();
+        return result.response.text();
+      } catch (error) {
+        lastError = error;
+        console.warn(
+          `Failed with ${modelName}${i < GEMINI_MODELS.length - 1 ? `, trying ${GEMINI_MODELS[i + 1]}...` : " (last model)"}`,
+          error,
+        );
+        // Small delay before trying the next model to avoid rapid-fire requests
+        if (i < GEMINI_MODELS.length - 1) {
+          await delay(2000);
+        }
+      }
     }
+
+    // All Gemini models failed — check if OpenRouter is available before throwing
+    const { apiKey: orKey } = getOpenRouterConfig();
+    if (!orKey) {
+      throw lastError || new Error("All Gemini models failed due to rate limits. Please wait a minute and try again.");
+    }
+    console.warn("All Gemini models rate-limited, falling back to OpenRouter...");
   }
 
   // Fallback to OpenRouter

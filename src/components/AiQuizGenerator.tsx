@@ -314,17 +314,17 @@ ${result}
   };
 
   return (
-    <div className="space-y-6">
-      <Card className="relative overflow-hidden border border-border/60">
+    <div className="space-y-4 sm:space-y-6">
+      <Card className="relative overflow-hidden border border-border/60 mx-0">
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,#38bdf820,transparent_55%)]" />
         <div className="absolute inset-y-0 right-0 w-1/2 bg-gradient-to-l from-primary/10 to-transparent" />
-        <CardHeader className="relative space-y-3">
+        <CardHeader className="relative space-y-3 px-4 py-4 sm:px-6 sm:py-6">
           <div className="flex flex-wrap items-center gap-3">
             <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-primary/15 text-primary">
               <Sparkles className="h-5 w-5" />
             </div>
             <div>
-              <CardTitle className="text-2xl sm:text-3xl">
+              <CardTitle className="text-xl sm:text-2xl md:text-3xl">
                 AI Quiz Studio
               </CardTitle>
               <CardDescription className="text-sm sm:text-base">
@@ -333,14 +333,14 @@ ${result}
               </CardDescription>
             </div>
           </div>
-          <div className="flex flex-wrap items-center gap-2 text-xs sm:text-sm text-muted-foreground">
-            <span className="inline-flex items-center gap-2 rounded-full border border-border/70 bg-background/60 px-3 py-1">
+          <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 text-[11px] sm:text-xs md:text-sm text-muted-foreground mb-4">
+            <span className="inline-flex items-center gap-1.5 rounded-full border border-border/70 bg-background/60 px-2 py-0.5 sm:px-3 sm:py-1">
               Adaptive difficulty
             </span>
-            <span className="inline-flex items-center gap-2 rounded-full border border-border/70 bg-background/60 px-3 py-1">
+            <span className="inline-flex items-center gap-1.5 rounded-full border border-border/70 bg-background/60 px-2 py-0.5 sm:px-3 sm:py-1">
               MCQ and short answers
             </span>
-            <span className="inline-flex items-center gap-2 rounded-full border border-border/70 bg-background/60 px-3 py-1">
+            <span className="inline-flex items-center gap-1.5 rounded-full border border-border/70 bg-background/60 px-2 py-0.5 sm:px-3 sm:py-1">
               Detailed scoring
             </span>
           </div>
@@ -364,7 +364,7 @@ ${result}
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="grid gap-4 md:grid-cols-2">
+                <div className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2">
                   <div className="space-y-2">
                     <label className="text-sm font-medium">Quiz topic</label>
                     <Input
@@ -431,8 +431,8 @@ ${result}
                     </div>
                   </div>
                 </div>
-                <div className="flex flex-wrap items-center gap-3">
-                  <Button onClick={handleGenerate} disabled={loading}>
+                <div className="flex flex-col sm:flex-row flex-wrap items-start sm:items-center gap-2 sm:gap-3">
+                  <Button onClick={handleGenerate} disabled={loading} className="w-full sm:w-auto">
                     {loading ? (
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                     ) : null}
@@ -474,11 +474,11 @@ ${result}
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="grid gap-4 lg:grid-cols-2">
+              <div className="grid gap-3 sm:gap-4 grid-cols-1 md:grid-cols-2">
                 <div className="space-y-2">
                   <label className="text-sm font-medium">Quiz content</label>
                   <Textarea
-                    rows={8}
+                    rows={5}
                     placeholder="Paste the quiz questions here."
                     value={quizText}
                     onChange={(event) => setQuizText(event.target.value)}
@@ -494,8 +494,8 @@ ${result}
                   />
                 </div>
               </div>
-              <div className="flex flex-wrap items-center gap-3">
-                <Button onClick={handleEvaluate} disabled={loading}>
+              <div className="flex flex-col sm:flex-row flex-wrap items-start sm:items-center gap-2 sm:gap-3">
+                <Button onClick={handleEvaluate} disabled={loading} className="w-full sm:w-auto">
                   {loading ? (
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                   ) : null}
@@ -528,9 +528,9 @@ ${result}
 
       {result && (
         <Card className="border-border/60 shadow-lg">
-          <CardHeader className="flex flex-row items-center justify-between gap-2">
-            <CardTitle className="text-2xl">AI Output</CardTitle>
-            <div className="flex gap-2">
+          <CardHeader className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-2 px-4 py-4 sm:px-6">
+            <CardTitle className="text-lg sm:text-2xl">AI Output</CardTitle>
+            <div className="flex gap-2 w-full sm:w-auto">
               {mode === "generate" && user && (
                 <Button
                   onClick={saveQuiz}
@@ -554,8 +554,8 @@ ${result}
               </Button>
             </div>
           </CardHeader>
-          <CardContent className="bg-muted/40 rounded-lg p-6 space-y-0">
-            <div className="space-y-0 leading-8 text-base font-sans">
+          <CardContent className="bg-muted/40 rounded-lg p-3 sm:p-6 space-y-0">
+            <div className="space-y-0 leading-7 sm:leading-8 text-sm sm:text-base font-sans">
               {result.split("\n").map((line, idx) => {
                 const isQuestionNumber = /^Q\d+\./.test(line);
                 const isBoldLabel =
@@ -566,12 +566,12 @@ ${result}
                 return (
                   <div
                     key={idx}
-                    className="min-h-8 py-1 px-4 hover:bg-primary/5 transition-colors rounded"
+                    className="min-h-7 sm:min-h-8 py-0.5 sm:py-1 px-2 sm:px-4 hover:bg-primary/5 transition-colors rounded"
                   >
                     <div
                       className={`${
                         isQuestionNumber
-                          ? "font-bold text-primary text-lg"
+                          ? "font-bold text-primary text-base sm:text-lg"
                           : isBoldLabel
                             ? "font-semibold text-foreground"
                             : "text-foreground"
@@ -590,7 +590,7 @@ ${result}
       {user && quizzes.length > 0 && (
         <Card className="border-border/60 shadow-lg">
           <CardHeader>
-            <CardTitle className="text-2xl">Quiz History</CardTitle>
+            <CardTitle className="text-lg sm:text-2xl">Quiz History</CardTitle>
             <CardDescription>
               Your saved quizzes - retake them anytime
             </CardDescription>
@@ -605,7 +605,7 @@ ${result}
                 {quizzes.map((quiz) => (
                   <div
                     key={quiz.$id}
-                    className="p-4 rounded-lg border border-border/60 hover:bg-muted/30 transition-colors"
+                    className="p-3 sm:p-4 rounded-lg border border-border/60 hover:bg-muted/30 transition-colors"
                   >
                     {editingQuizId === quiz.$id ? (
                       <div className="space-y-3">
@@ -726,12 +726,12 @@ ${result}
                         </div>
                       </div>
                     ) : (
-                      <div className="flex items-center justify-between gap-4">
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4">
                         <div className="flex-1">
                           <h3 className="font-semibold text-foreground">
                             {quiz.topic}
                           </h3>
-                          <div className="flex flex-wrap gap-3 mt-2 text-xs text-muted-foreground">
+                          <div className="flex flex-wrap gap-2 sm:gap-3 mt-1.5 sm:mt-2 text-[11px] sm:text-xs text-muted-foreground">
                             <span>
                               {quiz.questionCount} questions (
                               {quiz.questionType})
@@ -746,12 +746,12 @@ ${result}
                             </span>
                           </div>
                         </div>
-                        <div className="flex flex-wrap gap-2">
+                        <div className="flex flex-wrap gap-1.5 sm:gap-2 w-full sm:w-auto">
                           <Button
                             onClick={() => retakeQuiz(quiz)}
                             variant="outline"
                             size="sm"
-                            className="gap-2"
+                            className="gap-1.5 sm:gap-2 flex-1 sm:flex-none text-xs sm:text-sm"
                           >
                             <RotateCcw className="w-4 h-4" />
                             Retake
@@ -760,7 +760,7 @@ ${result}
                             onClick={() => startEditQuiz(quiz)}
                             variant="outline"
                             size="sm"
-                            className="gap-2"
+                            className="gap-1.5 sm:gap-2 flex-1 sm:flex-none text-xs sm:text-sm"
                           >
                             <Pencil className="w-4 h-4" />
                             Edit
@@ -769,7 +769,7 @@ ${result}
                             onClick={() => requestDeleteQuiz(quiz)}
                             variant="outline"
                             size="sm"
-                            className="gap-2 text-destructive hover:text-destructive"
+                            className="gap-1.5 sm:gap-2 flex-1 sm:flex-none text-xs sm:text-sm text-destructive hover:text-destructive"
                           >
                             <Trash2 className="w-4 h-4" />
                             Delete
