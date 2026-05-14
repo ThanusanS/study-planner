@@ -1,4 +1,4 @@
-import { Client, Account, Databases, Functions } from 'appwrite';
+import { Client, Account, Databases, Functions } from "appwrite";
 
 // Appwrite Configuration
 // IMPORTANT: Replace these with your actual Appwrite project values
@@ -13,6 +13,7 @@ export const appwriteConfig = {
   examsCollectionId: "exams",
   progressLogsCollectionId: "progressLogs",
   pomodoroSessionsCollectionId: "pomodoroSessions",
+  quizHistoryCollectionId: "quizHistory",
 };
 
 // Initialize Appwrite Client

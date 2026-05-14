@@ -54,6 +54,7 @@ A modern, production-ready study planner web application built with React, Tailw
 ## Tech Stack
 
 ### Frontend
+
 - **React 18** - UI framework
 - **Tailwind CSS** - Styling
 - **shadcn/ui** - UI components
@@ -63,6 +64,7 @@ A modern, production-ready study planner web application built with React, Tailw
 - **lucide-react** - Icons
 
 ### Backend
+
 - **Appwrite** - Backend as a Service
   - Authentication
   - Database
@@ -79,12 +81,14 @@ A modern, production-ready study planner web application built with React, Tailw
 ### Installation
 
 1. **Clone the repository**
+
    ```bash
    git clone <repository-url>
    cd study-planner
    ```
 
 2. **Install dependencies**
+
    ```bash
    pnpm install
    ```
@@ -97,16 +101,18 @@ A modern, production-ready study planner web application built with React, Tailw
 
 4. **Configure environment**
    - Update `src/lib/appwrite.ts` with your credentials:
+
    ```typescript
    export const appwriteConfig = {
-     endpoint: 'https://cloud.appwrite.io/v1',
-     projectId: 'YOUR_PROJECT_ID',
-     databaseId: 'YOUR_DATABASE_ID',
+     endpoint: "https://cloud.appwrite.io/v1",
+     projectId: "YOUR_PROJECT_ID",
+     databaseId: "YOUR_DATABASE_ID",
      // ... collection IDs
    };
    ```
 
 5. **Run the development server**
+
    ```bash
    pnpm dev
    ```
@@ -154,23 +160,27 @@ study-planner/
 4. **Exams** - Upcoming examinations
 5. **ProgressLogs** - Daily progress tracking
 6. **PomodoroSessions** - Focus session history
+7. **QuizHistory** - Saved AI quizzes for retake, edit, and delete
 
 See [Appwrite Setup Guide](./APPWRITE_SETUP.md) for detailed schema.
 
 ## Key Features Implementation
 
 ### Authentication
+
 - Email/password authentication via Appwrite
 - Session-based login
 - Protected routes
 - User data isolation
 
 ### Real-time Updates
+
 - Optimistic UI updates
 - Instant feedback on actions
 - No page reloads required
 
 ### Performance Optimization
+
 - Pagination for all queries (limit: 100)
 - Indexed database queries
 - Lazy loading
@@ -178,6 +188,7 @@ See [Appwrite Setup Guide](./APPWRITE_SETUP.md) for detailed schema.
 - Efficient state management
 
 ### Scalability (100K+ Users)
+
 - Optimized Appwrite queries
 - Proper database indexing
 - Frontend caching
@@ -225,7 +236,8 @@ For production, consider using environment variables:
 
 ```typescript
 export const appwriteConfig = {
-  endpoint: import.meta.env.VITE_APPWRITE_ENDPOINT || 'https://cloud.appwrite.io/v1',
+  endpoint:
+    import.meta.env.VITE_APPWRITE_ENDPOINT || "https://cloud.appwrite.io/v1",
   projectId: import.meta.env.VITE_APPWRITE_PROJECT_ID,
   databaseId: import.meta.env.VITE_APPWRITE_DATABASE_ID,
   // ...
@@ -257,6 +269,7 @@ export const appwriteConfig = {
 ## Notifications
 
 The app uses browser notifications for:
+
 - Task reminders
 - Pomodoro timer completion
 - Exam alerts
@@ -312,6 +325,7 @@ MIT License - feel free to use this project for learning or commercial purposes.
 ## Support
 
 For issues and questions:
+
 - Create an issue on GitHub
 - Check [Appwrite Documentation](https://appwrite.io/docs)
 - Join [Appwrite Discord](https://discord.com/invite/appwrite)

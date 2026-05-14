@@ -30,6 +30,7 @@ This Study Planner application uses Appwrite as the backend service for authenti
 Create the following collections with these attributes:
 
 ### 1. Subjects Collection
+
 - Collection ID: `subjects`
 - Attributes:
   - `userId` (string, required, size: 50)
@@ -46,6 +47,7 @@ Create the following collections with these attributes:
   - Delete: `user:[USER_ID]`
 
 ### 2. Topics Collection
+
 - Collection ID: `topics`
 - Attributes:
   - `subjectId` (string, required, size: 50)
@@ -59,6 +61,7 @@ Create the following collections with these attributes:
   - Delete: `user:[USER_ID]`
 
 ### 3. Tasks Collection
+
 - Collection ID: `tasks`
 - Attributes:
   - `userId` (string, required, size: 50)
@@ -80,6 +83,7 @@ Create the following collections with these attributes:
   - Delete: `user:[USER_ID]`
 
 ### 4. Exams Collection
+
 - Collection ID: `exams`
 - Attributes:
   - `userId` (string, required, size: 50)
@@ -96,6 +100,7 @@ Create the following collections with these attributes:
   - Delete: `user:[USER_ID]`
 
 ### 5. ProgressLogs Collection
+
 - Collection ID: `progressLogs`
 - Attributes:
   - `userId` (string, required, size: 50)
@@ -111,6 +116,7 @@ Create the following collections with these attributes:
   - Delete: `user:[USER_ID]`
 
 ### 6. PomodoroSessions Collection
+
 - Collection ID: `pomodoroSessions`
 - Attributes:
   - `userId` (string, required, size: 50)
@@ -128,21 +134,45 @@ Create the following collections with these attributes:
   - Update: `user:[USER_ID]`
   - Delete: `user:[USER_ID]`
 
+### 7. QuizHistory Collection
+
+- Collection ID: `quizHistory`
+- Attributes:
+  - `userId` (string, required, size: 50)
+  - `topic` (string, required, size: 200)
+  - `difficulty` (string, required, size: 20)
+  - `questionCount` (integer, required)
+  - `questionType` (string, required, size: 20)
+  - `quizContent` (string, required, size: 50000)
+  - `createdAt` (string, required, size: 50)
+  - `attempts` (integer, required)
+- Indexes:
+- Indexes:
+  - `userId` (key: userId, type: ASC)
+  - `createdAt` (key: createdAt, type: DESC)
+  - `topic` (key: topic, type: ASC)
+- Permissions:
+  - Read: `user:[USER_ID]`
+  - Create: `user:[USER_ID]`
+  - Update: `user:[USER_ID]`
+  - Delete: `user:[USER_ID]`
+
 ## Step 5: Update Configuration
 
 Update `src/lib/appwrite.ts` with your credentials:
 
 ```typescript
 export const appwriteConfig = {
-  endpoint: 'https://cloud.appwrite.io/v1', // Or your self-hosted URL
-  projectId: 'YOUR_PROJECT_ID',
-  databaseId: 'YOUR_DATABASE_ID',
-  subjectsCollectionId: 'subjects',
-  topicsCollectionId: 'topics',
-  tasksCollectionId: 'tasks',
-  examsCollectionId: 'exams',
-  progressLogsCollectionId: 'progressLogs',
-  pomodoroSessionsCollectionId: 'pomodoroSessions',
+  endpoint: "https://cloud.appwrite.io/v1", // Or your self-hosted URL
+  projectId: "YOUR_PROJECT_ID",
+  databaseId: "YOUR_DATABASE_ID",
+  subjectsCollectionId: "subjects",
+  topicsCollectionId: "topics",
+  tasksCollectionId: "tasks",
+  examsCollectionId: "exams",
+  progressLogsCollectionId: "progressLogs",
+  pomodoroSessionsCollectionId: "pomodoroSessions",
+  quizHistoryCollectionId: "quizHistory",
 };
 ```
 
@@ -159,13 +189,15 @@ If deploying to production:
 For automated reminders and notifications:
 
 ### Task Reminder Function
+
 1. Create a new function in Appwrite
 2. Set schedule: `0 * * * *` (every hour)
 3. Add code to check for upcoming tasks and send notifications
 
 Example function code:
+
 ```javascript
-const sdk = require('node-appwrite');
+const sdk = require("node-appwrite");
 
 module.exports = async ({ req, res, log, error }) => {
   const client = new sdk.Client()
@@ -174,13 +206,13 @@ module.exports = async ({ req, res, log, error }) => {
     .setKey(process.env.APPWRITE_API_KEY);
 
   const databases = new sdk.Databases(client);
-  
+
   // Query tasks with reminders in the next hour
   const now = new Date();
   const nextHour = new Date(now.getTime() + 60 * 60 * 1000);
-  
+
   // Implement reminder logic here
-  
+
   return res.json({ success: true });
 };
 ```
@@ -227,12 +259,14 @@ pnpm dev
 ## Deployment
 
 ### Frontend (Vercel)
+
 1. Push code to GitHub
 2. Import project to Vercel
 3. Set environment variables
 4. Deploy
 
 ### Appwrite
+
 - **Cloud**: Already deployed
 - **Self-hosted**: Follow [Appwrite installation guide](https://appwrite.io/docs/installation)
 

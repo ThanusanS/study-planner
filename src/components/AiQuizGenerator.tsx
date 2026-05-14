@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   Card,
   CardContent,
@@ -20,10 +20,35 @@ import {
   AlertDescription,
   AlertTitle,
 } from "../app/components/ui/alert";
-import { Loader2, Sparkles } from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "../app/components/ui/alert-dialog";
+import {
+  Loader2,
+  Sparkles,
+  Download,
+  Trash2,
+  RotateCcw,
+  Pencil,
+  Check,
+  X,
+} from "lucide-react";
 import { evaluateQuiz, generateQuiz } from "../services/aiQuizService";
+import databaseService, { QuizHistory } from "../services/databaseService";
+import { useAuth } from "../contexts/AuthContext";
+import { toast } from "sonner";
+import html2pdf from "html2pdf.js";
 
 export const AiQuizGenerator: React.FC = () => {
+  const { user } = useAuth();
+
   const [mode, setMode] = useState("generate");
   const [topic, setTopic] = useState("");
   const [difficulty, setDifficulty] = useState("Intermediate");
@@ -36,6 +61,174 @@ export const AiQuizGenerator: React.FC = () => {
   const [result, setResult] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [quizzes, setQuizzes] = useState<QuizHistory[]>([]);
+  const [quizzesLoading, setQuizzesLoading] = useState(false);
+  const [saveSuccess, setSaveSuccess] = useState(false);
+  const [editingQuizId, setEditingQuizId] = useState<string | null>(null);
+  const [editTopic, setEditTopic] = useState("");
+  const [editDifficulty, setEditDifficulty] = useState("");
+  const [editQuestionCount, setEditQuestionCount] = useState(8);
+  const [editQuestionType, setEditQuestionType] =
+    useState<QuizHistory["questionType"]>("mixed");
+  const [editQuizContent, setEditQuizContent] = useState("");
+  const [quizPendingDelete, setQuizPendingDelete] =
+    useState<QuizHistory | null>(null);
+  const [deleteLoading, setDeleteLoading] = useState(false);
+
+  // Load quizzes on component mount
+  useEffect(() => {
+    if (user?.id) {
+      loadQuizzes();
+    }
+  }, [user?.id]);
+
+  const loadQuizzes = async () => {
+    if (!user?.id) return;
+    setQuizzesLoading(true);
+    try {
+      const userQuizzes = await databaseService.getQuizzes(user.id);
+      setQuizzes(userQuizzes);
+    } catch (err) {
+      console.error("Failed to load quiz history:", err);
+    } finally {
+      setQuizzesLoading(false);
+    }
+  };
+
+  const saveQuiz = async () => {
+    if (!user?.id || !result) return;
+
+    try {
+      const newQuiz: Omit<QuizHistory, "$id"> = {
+        userId: user.id,
+        topic: topic.trim(),
+        difficulty: difficulty.toLowerCase() as "easy" | "medium" | "hard",
+        questionCount,
+        questionType,
+        quizContent: result,
+        createdAt: new Date().toISOString(),
+        attempts: 0,
+      };
+
+      await databaseService.createQuiz(newQuiz);
+      setSaveSuccess(true);
+      setTimeout(() => setSaveSuccess(false), 3000);
+      await loadQuizzes();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to save quiz.");
+    }
+  };
+
+  const requestDeleteQuiz = (quiz: QuizHistory) => {
+    setQuizPendingDelete(quiz);
+  };
+
+  const undoDeleteQuiz = async (quiz: QuizHistory) => {
+    try {
+      const restoredQuiz: Omit<QuizHistory, "$id"> = {
+        userId: quiz.userId,
+        topic: quiz.topic,
+        difficulty: quiz.difficulty,
+        questionCount: quiz.questionCount,
+        questionType: quiz.questionType,
+        quizContent: quiz.quizContent,
+        createdAt: quiz.createdAt,
+        attempts: quiz.attempts || 0,
+      };
+      await databaseService.createQuiz(restoredQuiz);
+      await loadQuizzes();
+      toast.success("Quiz restored to history");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to restore quiz.");
+    }
+  };
+
+  const confirmDeleteQuiz = async () => {
+    if (!quizPendingDelete?.$id) return;
+
+    const deletedQuiz = quizPendingDelete;
+    setDeleteLoading(true);
+    setQuizPendingDelete(null);
+
+    try {
+      setQuizzes((prev) => prev.filter((quiz) => quiz.$id !== deletedQuiz.$id));
+      if (editingQuizId === deletedQuiz.$id) {
+        cancelEditQuiz();
+      }
+      await databaseService.deleteQuiz(deletedQuiz.$id);
+      toast.success("Quiz deleted", {
+        action: {
+          label: "Undo",
+          onClick: () => {
+            void undoDeleteQuiz(deletedQuiz);
+          },
+        },
+      });
+    } catch (err) {
+      await loadQuizzes();
+      setError(err instanceof Error ? err.message : "Failed to delete quiz.");
+    } finally {
+      setDeleteLoading(false);
+    }
+  };
+
+  const startEditQuiz = (quiz: QuizHistory) => {
+    if (!quiz.$id) return;
+    setEditingQuizId(quiz.$id);
+    setEditTopic(quiz.topic);
+    setEditDifficulty(quiz.difficulty);
+    setEditQuestionCount(quiz.questionCount);
+    setEditQuestionType(quiz.questionType);
+    setEditQuizContent(quiz.quizContent);
+  };
+
+  const cancelEditQuiz = () => {
+    setEditingQuizId(null);
+    setEditTopic("");
+    setEditDifficulty("");
+    setEditQuestionCount(8);
+    setEditQuestionType("mixed");
+    setEditQuizContent("");
+  };
+
+  const updateQuizHistory = async () => {
+    if (!editingQuizId) return;
+    if (!editTopic.trim() || !editQuizContent.trim()) {
+      setError("Topic and quiz content are required to update quiz history.");
+      return;
+    }
+
+    try {
+      await databaseService.updateQuiz(editingQuizId, {
+        topic: editTopic.trim(),
+        difficulty: editDifficulty.toLowerCase() as "easy" | "medium" | "hard",
+        questionCount: editQuestionCount,
+        questionType: editQuestionType,
+        quizContent: editQuizContent.trim(),
+      });
+      cancelEditQuiz();
+      await loadQuizzes();
+      setSaveSuccess(true);
+      setTimeout(() => setSaveSuccess(false), 3000);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to update quiz.");
+    }
+  };
+
+  const retakeQuiz = (quiz: QuizHistory) => {
+    setTopic(quiz.topic);
+    setDifficulty(
+      quiz.difficulty.charAt(0).toUpperCase() + quiz.difficulty.slice(1),
+    );
+    setQuestionCount(quiz.questionCount);
+    setQuestionType(quiz.questionType);
+    setResult(quiz.quizContent);
+    setMode("generate");
+    // Update attempts
+    databaseService.updateQuiz(quiz.$id || "", {
+      attempts: (quiz.attempts || 0) + 1,
+    });
+  };
 
   const handleGenerate = async () => {
     setError(null);
@@ -94,6 +287,30 @@ export const AiQuizGenerator: React.FC = () => {
       setQuizText(result);
       setStudentAnswers(""); // Clear old student answers for new quiz
     }
+  };
+
+  const downloadPDF = () => {
+    if (!result) return;
+
+    const element = document.createElement("div");
+    element.innerHTML = `
+      <div style="font-family: Arial, sans-serif; padding: 20px; line-height: 1.6;">
+        <h1 style="color: #333; margin-bottom: 20px;">AI Quiz Studio - ${mode === "generate" ? "Quiz" : "Evaluation"}</h1>
+        <pre style="white-space: pre-wrap; font-size: 12px; background: #f5f5f5; padding: 15px; border-radius: 5px; font-family: 'Courier New', monospace;">
+${result}
+        </pre>
+      </div>
+    `;
+
+    const options = {
+      margin: 10,
+      filename: `quiz-${mode}-${new Date().toISOString().split("T")[0]}.pdf`,
+      image: { type: "jpeg", quality: 0.98 },
+      html2canvas: { scale: 2 },
+      jsPDF: { orientation: "portrait", unit: "mm", format: "a4" },
+    };
+
+    html2pdf().set(options).from(element).save();
   };
 
   return (
@@ -300,10 +517,42 @@ export const AiQuizGenerator: React.FC = () => {
         </Alert>
       )}
 
+      {saveSuccess && (
+        <Alert className="border-green-200 bg-green-50">
+          <AlertTitle className="text-green-800">Success</AlertTitle>
+          <AlertDescription className="text-green-700">
+            Quiz saved successfully to your history!
+          </AlertDescription>
+        </Alert>
+      )}
+
       {result && (
         <Card className="border-border/60 shadow-lg">
-          <CardHeader>
+          <CardHeader className="flex flex-row items-center justify-between gap-2">
             <CardTitle className="text-2xl">AI Output</CardTitle>
+            <div className="flex gap-2">
+              {mode === "generate" && user && (
+                <Button
+                  onClick={saveQuiz}
+                  variant="default"
+                  size="sm"
+                  className="gap-2"
+                >
+                  <Sparkles className="w-4 h-4" />
+                  Save Quiz
+                </Button>
+              )}
+              <Button
+                onClick={downloadPDF}
+                variant="outline"
+                size="sm"
+                disabled={!result}
+                className="gap-2"
+              >
+                <Download className="w-4 h-4" />
+                Download PDF
+              </Button>
+            </div>
           </CardHeader>
           <CardContent className="bg-muted/40 rounded-lg p-6 space-y-0">
             <div className="space-y-0 leading-8 text-base font-sans">
@@ -337,6 +586,241 @@ export const AiQuizGenerator: React.FC = () => {
           </CardContent>
         </Card>
       )}
+
+      {user && quizzes.length > 0 && (
+        <Card className="border-border/60 shadow-lg">
+          <CardHeader>
+            <CardTitle className="text-2xl">Quiz History</CardTitle>
+            <CardDescription>
+              Your saved quizzes - retake them anytime
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {quizzesLoading ? (
+              <div className="flex items-center justify-center py-8">
+                <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {quizzes.map((quiz) => (
+                  <div
+                    key={quiz.$id}
+                    className="p-4 rounded-lg border border-border/60 hover:bg-muted/30 transition-colors"
+                  >
+                    {editingQuizId === quiz.$id ? (
+                      <div className="space-y-3">
+                        <div className="grid gap-3 md:grid-cols-2">
+                          <div className="space-y-1">
+                            <label className="text-xs font-medium text-muted-foreground">
+                              Topic
+                            </label>
+                            <Input
+                              value={editTopic}
+                              onChange={(event) =>
+                                setEditTopic(event.target.value)
+                              }
+                            />
+                          </div>
+                          <div className="space-y-1">
+                            <label className="text-xs font-medium text-muted-foreground">
+                              Difficulty (easy, medium, hard)
+                            </label>
+                            <Input
+                              value={editDifficulty}
+                              onChange={(event) =>
+                                setEditDifficulty(event.target.value)
+                              }
+                            />
+                          </div>
+                          <div className="space-y-1">
+                            <label className="text-xs font-medium text-muted-foreground">
+                              Question count
+                            </label>
+                            <Input
+                              type="number"
+                              min={1}
+                              max={30}
+                              value={editQuestionCount}
+                              onChange={(event) => {
+                                const nextValue = Number(event.target.value);
+                                setEditQuestionCount(
+                                  Number.isNaN(nextValue) ? 1 : nextValue,
+                                );
+                              }}
+                            />
+                          </div>
+                          <div className="space-y-1">
+                            <label className="text-xs font-medium text-muted-foreground">
+                              Question type
+                            </label>
+                            <div className="flex gap-2">
+                              <Button
+                                type="button"
+                                variant={
+                                  editQuestionType === "mcq"
+                                    ? "default"
+                                    : "outline"
+                                }
+                                size="sm"
+                                onClick={() => setEditQuestionType("mcq")}
+                              >
+                                MCQ
+                              </Button>
+                              <Button
+                                type="button"
+                                variant={
+                                  editQuestionType === "short"
+                                    ? "default"
+                                    : "outline"
+                                }
+                                size="sm"
+                                onClick={() => setEditQuestionType("short")}
+                              >
+                                Short
+                              </Button>
+                              <Button
+                                type="button"
+                                variant={
+                                  editQuestionType === "mixed"
+                                    ? "default"
+                                    : "outline"
+                                }
+                                size="sm"
+                                onClick={() => setEditQuestionType("mixed")}
+                              >
+                                Mixed
+                              </Button>
+                            </div>
+                          </div>
+                        </div>
+                        <div className="space-y-1">
+                          <label className="text-xs font-medium text-muted-foreground">
+                            Quiz content
+                          </label>
+                          <Textarea
+                            rows={6}
+                            value={editQuizContent}
+                            onChange={(event) =>
+                              setEditQuizContent(event.target.value)
+                            }
+                          />
+                        </div>
+                        <div className="flex flex-wrap gap-2">
+                          <Button
+                            onClick={updateQuizHistory}
+                            size="sm"
+                            className="gap-2"
+                          >
+                            <Check className="w-4 h-4" />
+                            Update
+                          </Button>
+                          <Button
+                            onClick={cancelEditQuiz}
+                            variant="outline"
+                            size="sm"
+                            className="gap-2"
+                          >
+                            <X className="w-4 h-4" />
+                            Cancel
+                          </Button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="flex items-center justify-between gap-4">
+                        <div className="flex-1">
+                          <h3 className="font-semibold text-foreground">
+                            {quiz.topic}
+                          </h3>
+                          <div className="flex flex-wrap gap-3 mt-2 text-xs text-muted-foreground">
+                            <span>
+                              {quiz.questionCount} questions (
+                              {quiz.questionType})
+                            </span>
+                            <span>Difficulty: {quiz.difficulty}</span>
+                            <span>
+                              {quiz.attempts || 0} attempt
+                              {(quiz.attempts || 0) !== 1 ? "s" : ""}
+                            </span>
+                            <span>
+                              {new Date(quiz.createdAt).toLocaleDateString()}
+                            </span>
+                          </div>
+                        </div>
+                        <div className="flex flex-wrap gap-2">
+                          <Button
+                            onClick={() => retakeQuiz(quiz)}
+                            variant="outline"
+                            size="sm"
+                            className="gap-2"
+                          >
+                            <RotateCcw className="w-4 h-4" />
+                            Retake
+                          </Button>
+                          <Button
+                            onClick={() => startEditQuiz(quiz)}
+                            variant="outline"
+                            size="sm"
+                            className="gap-2"
+                          >
+                            <Pencil className="w-4 h-4" />
+                            Edit
+                          </Button>
+                          <Button
+                            onClick={() => requestDeleteQuiz(quiz)}
+                            variant="outline"
+                            size="sm"
+                            className="gap-2 text-destructive hover:text-destructive"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                            Delete
+                          </Button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
+      <AlertDialog
+        open={Boolean(quizPendingDelete)}
+        onOpenChange={(isOpen) => {
+          if (!isOpen && !deleteLoading) {
+            setQuizPendingDelete(null);
+          }
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete this saved quiz?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will remove
+              {quizPendingDelete
+                ? ` "${quizPendingDelete.topic}"`
+                : " this quiz"}
+              from history. You can still undo right after deletion.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleteLoading}>
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(event) => {
+                event.preventDefault();
+                void confirmDeleteQuiz();
+              }}
+              disabled={deleteLoading}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {deleteLoading ? "Deleting..." : "Delete"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };

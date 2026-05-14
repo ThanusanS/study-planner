@@ -66,6 +66,18 @@ export interface PomodoroSession {
   createdAt: string;
 }
 
+export interface QuizHistory {
+  $id?: string;
+  userId: string;
+  topic: string;
+  difficulty: "easy" | "medium" | "hard";
+  questionCount: number;
+  questionType: "mcq" | "short" | "mixed";
+  quizContent: string;
+  createdAt: string;
+  attempts?: number;
+}
+
 class DatabaseService {
   // ========== SUBJECTS ==========
   async createSubject(subject: Omit<Subject, "$id">): Promise<Subject> {
@@ -352,6 +364,62 @@ class DatabaseService {
       ],
     );
     return response.documents as PomodoroSession[];
+  }
+
+  // ========== QUIZ HISTORY ==========
+  async createQuiz(quiz: Omit<QuizHistory, "$id">): Promise<QuizHistory> {
+    return await databases.createDocument(
+      databaseId,
+      appwriteConfig.quizHistoryCollectionId,
+      ID.unique(),
+      quiz,
+    );
+  }
+
+  async getQuizzes(userId: string): Promise<QuizHistory[]> {
+    const response = await databases.listDocuments(
+      databaseId,
+      appwriteConfig.quizHistoryCollectionId,
+      [Query.equal("userId", userId), Query.orderDesc("createdAt")],
+    );
+    return response.documents as QuizHistory[];
+  }
+
+  async getQuizById(quizId: string): Promise<QuizHistory> {
+    return (await databases.getDocument(
+      databaseId,
+      appwriteConfig.quizHistoryCollectionId,
+      quizId,
+    )) as QuizHistory;
+  }
+
+  async updateQuiz(
+    quizId: string,
+    data: Partial<QuizHistory>,
+  ): Promise<QuizHistory> {
+    return (await databases.updateDocument(
+      databaseId,
+      appwriteConfig.quizHistoryCollectionId,
+      quizId,
+      data,
+    )) as QuizHistory;
+  }
+
+  async deleteQuiz(quizId: string): Promise<void> {
+    await databases.deleteDocument(
+      databaseId,
+      appwriteConfig.quizHistoryCollectionId,
+      quizId,
+    );
+  }
+
+  async deleteAllUserQuizzes(userId: string): Promise<void> {
+    const quizzes = await this.getQuizzes(userId);
+    for (const quiz of quizzes) {
+      if (quiz.$id) {
+        await this.deleteQuiz(quiz.$id);
+      }
+    }
   }
 }
 
