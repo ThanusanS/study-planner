@@ -44,7 +44,7 @@ import { evaluateQuiz, generateQuiz } from "../services/aiQuizService";
 import databaseService, { QuizHistory } from "../services/databaseService";
 import { useAuth } from "../contexts/AuthContext";
 import { toast } from "sonner";
-import html2pdf from "html2pdf.js";
+import jsPDF from "jspdf";
 
 export const AiQuizGenerator: React.FC = () => {
   const { user } = useAuth();
@@ -95,27 +95,39 @@ export const AiQuizGenerator: React.FC = () => {
     }
   };
 
-  const saveQuiz = async () => {
-    if (!user?.id || !result) return;
+  const mapDifficulty = (input: string): "easy" | "medium" | "hard" => {
+    const normalized = input.trim().toLowerCase();
+    if (normalized === "beginner" || normalized === "easy") return "easy";
+    if (normalized === "advanced" || normalized === "hard") return "hard";
+    return "medium"; // "intermediate" or any other value defaults to medium
+  };
+
+  const saveQuiz = async (quizContent?: string) => {
+    const contentToSave = quizContent || result;
+    if (!user?.id || !contentToSave) return;
 
     try {
       const newQuiz: Omit<QuizHistory, "$id"> = {
         userId: user.id,
         topic: topic.trim(),
-        difficulty: difficulty.toLowerCase() as "easy" | "medium" | "hard",
+        difficulty: mapDifficulty(difficulty),
         questionCount,
         questionType,
-        quizContent: result,
+        quizContent: contentToSave,
         createdAt: new Date().toISOString(),
         attempts: 0,
       };
 
       await databaseService.createQuiz(newQuiz);
+      toast.success("Quiz saved to history!");
       setSaveSuccess(true);
       setTimeout(() => setSaveSuccess(false), 3000);
       await loadQuizzes();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to save quiz.");
+      console.error("Save quiz error:", err);
+      const message = err instanceof Error ? err.message : "Failed to save quiz.";
+      toast.error(message);
+      setError(message);
     }
   };
 
@@ -201,7 +213,7 @@ export const AiQuizGenerator: React.FC = () => {
     try {
       await databaseService.updateQuiz(editingQuizId, {
         topic: editTopic.trim(),
-        difficulty: editDifficulty.toLowerCase() as "easy" | "medium" | "hard",
+        difficulty: mapDifficulty(editDifficulty),
         questionCount: editQuestionCount,
         questionType: editQuestionType,
         quizContent: editQuizContent.trim(),
@@ -247,7 +259,19 @@ export const AiQuizGenerator: React.FC = () => {
         questionCount,
         questionType,
       });
-      setResult(output || "No response returned from the model.");
+      const quizOutput = output || "No response returned from the model.";
+      setResult(quizOutput);
+
+      // Auto-save quiz to history after generation
+      if (user?.id && quizOutput !== "No response returned from the model.") {
+        try {
+          await saveQuiz(quizOutput);
+          toast.success("Quiz generated and saved to history!");
+        } catch {
+          // Silently fail auto-save — user can still save manually
+          console.warn("Auto-save failed, quiz can be saved manually.");
+        }
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to generate quiz.");
     } finally {
@@ -292,25 +316,277 @@ export const AiQuizGenerator: React.FC = () => {
   const downloadPDF = () => {
     if (!result) return;
 
-    const element = document.createElement("div");
-    element.innerHTML = `
-      <div style="font-family: Arial, sans-serif; padding: 20px; line-height: 1.6;">
-        <h1 style="color: #333; margin-bottom: 20px;">AI Quiz Studio - ${mode === "generate" ? "Quiz" : "Evaluation"}</h1>
-        <pre style="white-space: pre-wrap; font-size: 12px; background: #f5f5f5; padding: 15px; border-radius: 5px; font-family: 'Courier New', monospace;">
-${result}
-        </pre>
-      </div>
-    `;
+    try {
+      const doc = new jsPDF({ unit: "mm", format: "a4" });
+      const pageW = doc.internal.pageSize.getWidth();
+      const pageH = doc.internal.pageSize.getHeight();
+      const marginL = 18;
+      const marginR = 18;
+      const contentW = pageW - marginL - marginR;
+      const isEval = mode === "evaluate";
+      const title = isEval ? "Answer Evaluation" : "Quiz Paper";
+      let y = 0;
 
-    const options = {
-      margin: 10,
-      filename: `quiz-${mode}-${new Date().toISOString().split("T")[0]}.pdf`,
-      image: { type: "jpeg", quality: 0.98 },
-      html2canvas: { scale: 2 },
-      jsPDF: { orientation: "portrait", unit: "mm", format: "a4" },
-    };
+      // ── Colors ──
+      const blue = { r: 37, g: 99, b: 235 };
+      const darkBlue = { r: 30, g: 58, b: 138 };
+      const gray50 = { r: 249, g: 250, b: 251 };
+      const gray300 = { r: 209, g: 213, b: 219 };
+      const gray500 = { r: 107, g: 114, b: 128 };
+      const gray700 = { r: 55, g: 65, b: 81 };
+      const gray900 = { r: 17, g: 24, b: 39 };
+      const green600 = { r: 22, g: 163, b: 74 };
+      const red500 = { r: 239, g: 68, b: 68 };
+      const amber600 = { r: 217, g: 119, b: 6 };
+      const blueBg = { r: 239, g: 246, b: 255 };
+      const greenBg = { r: 240, g: 253, b: 244 };
+      const redBg = { r: 254, g: 242, b: 242 };
 
-    html2pdf().set(options).from(element).save();
+      // ── Helper: check page break and add new page ──
+      const ensureSpace = (needed: number) => {
+        if (y + needed > pageH - 22) {
+          doc.addPage();
+          y = 20;
+        }
+      };
+
+      // ── Draw header ──
+      const drawHeader = (isFirst: boolean) => {
+        // Blue header band
+        doc.setFillColor(blue.r, blue.g, blue.b);
+        doc.rect(0, 0, pageW, isFirst ? 38 : 12, "F");
+        // Darker accent strip at very top
+        doc.setFillColor(darkBlue.r, darkBlue.g, darkBlue.b);
+        doc.rect(0, 0, pageW, 3, "F");
+
+        if (isFirst) {
+          // App name
+          doc.setFont("helvetica", "bold");
+          doc.setFontSize(20);
+          doc.setTextColor(255, 255, 255);
+          doc.text("AI Quiz Studio", marginL, 18);
+
+          // Subtitle badge
+          doc.setFontSize(9);
+          doc.setFont("helvetica", "normal");
+          const badgeText = `  ${title}  `;
+          const badgeW = doc.getTextWidth(badgeText) + 4;
+          doc.setFillColor(255, 255, 255);
+          doc.roundedRect(marginL, 22, badgeW, 6, 1.5, 1.5, "F");
+          doc.setTextColor(blue.r, blue.g, blue.b);
+          doc.text(badgeText.trim(), marginL + 2, 26.5);
+
+          // Date on right
+          doc.setTextColor(220, 230, 255);
+          doc.setFontSize(8);
+          doc.text(new Date().toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" }), pageW - marginR, 14, { align: "right" });
+          doc.text(new Date().toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" }), pageW - marginR, 19, { align: "right" });
+
+          y = 44;
+
+          // Meta info row (topic, difficulty, count)
+          doc.setFontSize(10);
+          doc.setFont("helvetica", "bold");
+          doc.setTextColor(gray900.r, gray900.g, gray900.b);
+          const topicLabel = topic.trim() || "General";
+          const topicLines = doc.splitTextToSize(topicLabel, contentW);
+          doc.text(topicLines, marginL, y);
+          y += topicLines.length * 5 + 2;
+
+          // Metadata badges
+          doc.setFont("helvetica", "normal");
+          doc.setFontSize(7.5);
+          const badges = [
+            `Difficulty: ${difficulty}`,
+            `${questionCount} Questions`,
+            `Type: ${questionType.toUpperCase()}`,
+          ];
+          let badgeX = marginL;
+          for (const badge of badges) {
+            const bw = doc.getTextWidth(badge) + 6;
+            doc.setFillColor(gray50.r, gray50.g, gray50.b);
+            doc.setDrawColor(gray300.r, gray300.g, gray300.b);
+            doc.roundedRect(badgeX, y - 3.5, bw, 5.5, 1, 1, "FD");
+            doc.setTextColor(gray700.r, gray700.g, gray700.b);
+            doc.text(badge, badgeX + 3, y);
+            badgeX += bw + 3;
+          }
+          y += 8;
+
+          // Divider
+          doc.setDrawColor(gray300.r, gray300.g, gray300.b);
+          doc.setLineWidth(0.3);
+          doc.line(marginL, y, pageW - marginR, y);
+          y += 7;
+        } else {
+          y = 18;
+        }
+      };
+
+      // ── Draw footer ──
+      const drawFooters = () => {
+        const total = doc.getNumberOfPages();
+        for (let p = 1; p <= total; p++) {
+          doc.setPage(p);
+          // Footer line
+          doc.setDrawColor(gray300.r, gray300.g, gray300.b);
+          doc.setLineWidth(0.2);
+          doc.line(marginL, pageH - 14, pageW - marginR, pageH - 14);
+          // Footer text
+          doc.setFont("helvetica", "normal");
+          doc.setFontSize(7);
+          doc.setTextColor(gray500.r, gray500.g, gray500.b);
+          doc.text("Generated by AI Quiz Studio", marginL, pageH - 9);
+          doc.text(`Page ${p} of ${total}`, pageW - marginR, pageH - 9, { align: "right" });
+        }
+      };
+
+      // ── Render first-page header ──
+      drawHeader(true);
+
+      // ── Process content lines ──
+      const lines = result.split("\n");
+
+      for (let i = 0; i < lines.length; i++) {
+        const line = lines[i];
+        const trimmed = line.trim();
+        if (!trimmed) {
+          y += 3;
+          continue;
+        }
+
+        // --- Question numbers: Q1. Q2. etc ---
+        if (/^Q\d+[.:]/.test(trimmed)) {
+          ensureSpace(16);
+          if (y > 55) y += 3; // extra gap between questions
+
+          // Tinted background block
+          const qLines = doc.splitTextToSize(trimmed, contentW - 10);
+          const blockH = qLines.length * 5 + 5;
+          doc.setFillColor(blueBg.r, blueBg.g, blueBg.b);
+          doc.roundedRect(marginL, y - 4, contentW, blockH, 1.5, 1.5, "F");
+          // Blue left accent bar
+          doc.setFillColor(blue.r, blue.g, blue.b);
+          doc.roundedRect(marginL, y - 4, 1.2, blockH, 0.6, 0.6, "F");
+
+          doc.setFont("helvetica", "bold");
+          doc.setFontSize(10.5);
+          doc.setTextColor(darkBlue.r, darkBlue.g, darkBlue.b);
+          doc.text(qLines, marginL + 5, y + 1);
+          y += blockH + 3;
+          continue;
+        }
+
+        // --- MCQ options: A) B) C) D) ---
+        if (/^[A-Da-d][).]\s/.test(trimmed)) {
+          ensureSpace(7);
+          doc.setFont("helvetica", "normal");
+          doc.setFontSize(9.5);
+          doc.setTextColor(gray700.r, gray700.g, gray700.b);
+          // Circle bullet
+          doc.setFillColor(gray300.r, gray300.g, gray300.b);
+          doc.circle(marginL + 6, y - 1, 1.2, "F");
+          const optLines = doc.splitTextToSize(trimmed, contentW - 14);
+          doc.text(optLines, marginL + 10, y);
+          y += optLines.length * 4.5 + 1.5;
+          continue;
+        }
+
+        // --- Score line ---
+        if (/^Score:/i.test(trimmed)) {
+          ensureSpace(14);
+          y += 2;
+          doc.setFillColor(greenBg.r, greenBg.g, greenBg.b);
+          doc.roundedRect(marginL, y - 5, contentW, 10, 2, 2, "F");
+          doc.setFillColor(green600.r, green600.g, green600.b);
+          doc.roundedRect(marginL, y - 5, 1.2, 10, 0.6, 0.6, "F");
+          doc.setFont("helvetica", "bold");
+          doc.setFontSize(12);
+          doc.setTextColor(green600.r, green600.g, green600.b);
+          doc.text(trimmed, marginL + 5, y + 1);
+          y += 12;
+          continue;
+        }
+
+        // --- Result: Correct / Wrong / Partially Correct ---
+        if (/^Result:/i.test(trimmed)) {
+          ensureSpace(8);
+          const isCorrect = /correct/i.test(trimmed) && !/wrong|partially/i.test(trimmed);
+          const isWrong = /wrong/i.test(trimmed);
+          const color = isCorrect ? green600 : isWrong ? red500 : amber600;
+          const bg = isCorrect ? greenBg : isWrong ? redBg : { r: 255, g: 251, b: 235 };
+
+          doc.setFillColor(bg.r, bg.g, bg.b);
+          doc.roundedRect(marginL + 4, y - 3.5, contentW - 8, 6, 1, 1, "F");
+          doc.setFont("helvetica", "bold");
+          doc.setFontSize(9);
+          doc.setTextColor(color.r, color.g, color.b);
+          doc.text(trimmed, marginL + 7, y);
+          y += 7;
+          continue;
+        }
+
+        // --- Section headings (bold labels) ---
+        if (/^(Your Answer:|Correct Answer:|Explanation:|Final Feedback:|Strengths:|Weak Areas:|Study Suggestion:|Quiz Topic:)/i.test(trimmed)) {
+          ensureSpace(8);
+          y += 1;
+          doc.setFont("helvetica", "bold");
+          doc.setFontSize(9.5);
+          doc.setTextColor(gray900.r, gray900.g, gray900.b);
+          const sLines = doc.splitTextToSize(trimmed, contentW - 4);
+          doc.text(sLines, marginL + 2, y);
+          y += sLines.length * 4.5 + 2;
+          continue;
+        }
+
+        // --- Bullet points ---
+        if (/^[-•]\s/.test(trimmed)) {
+          ensureSpace(7);
+          doc.setFont("helvetica", "normal");
+          doc.setFontSize(9);
+          doc.setTextColor(gray700.r, gray700.g, gray700.b);
+          doc.setFillColor(blue.r, blue.g, blue.b);
+          doc.circle(marginL + 5, y - 1, 0.8, "F");
+          const bLines = doc.splitTextToSize(trimmed.replace(/^[-•]\s*/, ""), contentW - 12);
+          doc.text(bLines, marginL + 9, y);
+          y += bLines.length * 4.5 + 1.5;
+          continue;
+        }
+
+        // --- Default text ---
+        ensureSpace(7);
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(9.5);
+        doc.setTextColor(gray700.r, gray700.g, gray700.b);
+        const wrapped = doc.splitTextToSize(trimmed, contentW - 4);
+        doc.text(wrapped, marginL + 2, y);
+        y += wrapped.length * 4.5 + 1.5;
+      }
+
+      // ── Draw continuation headers on pages 2+ ──
+      const total = doc.getNumberOfPages();
+      for (let p = 2; p <= total; p++) {
+        doc.setPage(p);
+        doc.setFillColor(blue.r, blue.g, blue.b);
+        doc.rect(0, 0, pageW, 12, "F");
+        doc.setFillColor(darkBlue.r, darkBlue.g, darkBlue.b);
+        doc.rect(0, 0, pageW, 2.5, "F");
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(8);
+        doc.setTextColor(255, 255, 255);
+        doc.text(`AI Quiz Studio  —  ${title}`, marginL, 8);
+      }
+
+      // ── Draw footers on all pages ──
+      drawFooters();
+
+      // ── Save ──
+      doc.save(`quiz-${mode}-${new Date().toISOString().split("T")[0]}.pdf`);
+      toast.success("PDF downloaded successfully!");
+    } catch (err) {
+      console.error("PDF generation failed:", err);
+      toast.error("Failed to generate PDF. Please try again.");
+    }
   };
 
   return (
@@ -533,7 +809,7 @@ ${result}
             <div className="flex gap-2 w-full sm:w-auto">
               {mode === "generate" && user && (
                 <Button
-                  onClick={saveQuiz}
+                  onClick={() => saveQuiz()}
                   variant="default"
                   size="sm"
                   className="gap-2"

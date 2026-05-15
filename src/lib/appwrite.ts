@@ -13,7 +13,7 @@ export const appwriteConfig = {
   examsCollectionId: "exams",
   progressLogsCollectionId: "progressLogs",
   pomodoroSessionsCollectionId: "pomodoroSessions",
-  quizHistoryCollectionId: "quizHistory",
+  quizHistoryCollectionId: "quizhistory",
 };
 
 // Initialize Appwrite Client
