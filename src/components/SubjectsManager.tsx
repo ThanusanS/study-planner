@@ -91,10 +91,12 @@ const SUBJECT_COLORS = [
 
 type SubjectsManagerProps = {
   onOnboardingProgress?: () => void;
+  onNavigateToGuide?: () => void;
 };
 
 export const SubjectsManager: React.FC<SubjectsManagerProps> = ({
   onOnboardingProgress,
+  onNavigateToGuide,
 }) => {
   const { user } = useAuth();
   const [subjects, setSubjects] = useState<Subject[]>([]);
@@ -416,6 +418,7 @@ export const SubjectsManager: React.FC<SubjectsManagerProps> = ({
     const nextOrder =
       subjects.reduce((max, subject) => Math.max(max, subject.order || 0), 0) +
       1;
+    const isFirstSubject = subjects.length === 0;
 
     try {
       const newSubject = await databaseService.createSubject({
@@ -429,11 +432,17 @@ export const SubjectsManager: React.FC<SubjectsManagerProps> = ({
       setSubjects([newSubject, ...subjects]);
       setTopics({ ...topics, [newSubject.$id!]: [] });
       setIsSubjectDialogOpen(false);
-      setExpandedSubjectId(newSubject.$id || null);
-      setScrollTargetSubjectId(newSubject.$id || null);
       toast.success("Subject created successfully");
       (e.target as HTMLFormElement).reset();
       onOnboardingProgress?.();
+
+      // For new users: after first subject, return to user guide
+      if (isFirstSubject && onNavigateToGuide) {
+        onNavigateToGuide();
+      } else {
+        setExpandedSubjectId(newSubject.$id || null);
+        setScrollTargetSubjectId(newSubject.$id || null);
+      }
     } catch (error) {
       console.error("Error creating subject:", error);
       toast.error("Failed to create subject");

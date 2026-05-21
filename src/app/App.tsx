@@ -378,7 +378,13 @@ const AppContent: React.FC = () => {
             <TasksManager onOnboardingProgress={loadOnboardingStatus} />
           )}
           {currentPage === "subjects" && (
-            <SubjectsManager onOnboardingProgress={loadOnboardingStatus} />
+            <SubjectsManager
+              onOnboardingProgress={loadOnboardingStatus}
+              onNavigateToGuide={() => {
+                setCurrentPage("dashboard");
+                window.scrollTo({ top: 0, behavior: "smooth" });
+              }}
+            />
           )}
           {currentPage === "exams" && (
             <ExamsManager onOnboardingProgress={loadOnboardingStatus} />
