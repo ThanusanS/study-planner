@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useAuth } from "../contexts/AuthContext";
 import databaseService, {
   Exam,
@@ -122,6 +122,13 @@ export const SubjectsManager: React.FC<SubjectsManagerProps> = ({
   const [dragOverSubjectId, setDragOverSubjectId] = useState<string | null>(
     null,
   );
+  const [expandedSubjectId, setExpandedSubjectId] = useState<string | null>(
+    null,
+  );
+  const [scrollTargetSubjectId, setScrollTargetSubjectId] = useState<
+    string | null
+  >(null);
+  const subjectRefs = useRef<Record<string, HTMLDivElement | null>>({});
   const [allTasks, setAllTasks] = useState<Task[]>([]);
   const [allExams, setAllExams] = useState<Exam[]>([]);
   const [allSessions, setAllSessions] = useState<PomodoroSession[]>([]);
@@ -136,6 +143,15 @@ export const SubjectsManager: React.FC<SubjectsManagerProps> = ({
       loadData();
     }
   }, [user, showArchived]);
+
+  useEffect(() => {
+    if (!scrollTargetSubjectId) return;
+    const target = subjectRefs.current[scrollTargetSubjectId];
+    if (target) {
+      target.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+    setScrollTargetSubjectId(null);
+  }, [scrollTargetSubjectId, subjects]);
 
   useEffect(() => {
     setSelectedSubjectIds([]);
@@ -413,6 +429,8 @@ export const SubjectsManager: React.FC<SubjectsManagerProps> = ({
       setSubjects([newSubject, ...subjects]);
       setTopics({ ...topics, [newSubject.$id!]: [] });
       setIsSubjectDialogOpen(false);
+      setExpandedSubjectId(newSubject.$id || null);
+      setScrollTargetSubjectId(newSubject.$id || null);
       toast.success("Subject created successfully");
       (e.target as HTMLFormElement).reset();
       onOnboardingProgress?.();
@@ -1044,171 +1062,193 @@ export const SubjectsManager: React.FC<SubjectsManagerProps> = ({
       ) : (
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           {sortedSubjects.map((subject) => (
-            <Card
+            <div
               key={subject.$id}
-              className={`overflow-hidden ${
-                draggingSubjectId === subject.$id ? "opacity-70" : ""
-              } ${dragOverSubjectId === subject.$id ? "ring-2 ring-primary" : ""} ${
-                subject.archived ? "opacity-60" : ""
-              }`}
-              draggable={canDrag}
-              onDragStart={() => handleDragStart(subject.$id || "")}
-              onDragOver={(event) => handleDragOver(event, subject.$id || "")}
-              onDrop={() => handleDrop(subject.$id || "")}
-              onDragEnd={() => {
-                setDraggingSubjectId(null);
-                setDragOverSubjectId(null);
+              ref={(node) => {
+                if (subject.$id) {
+                  subjectRefs.current[subject.$id] = node;
+                }
               }}
             >
-              <div className="h-2" style={{ backgroundColor: subject.color }} />
-              <CardHeader>
-                <div className="flex items-start justify-between">
-                  <div className="flex items-center gap-3">
-                    <Checkbox
-                      checked={selectedSubjectIds.includes(subject.$id || "")}
-                      onCheckedChange={() =>
-                        toggleSubjectSelection(subject.$id || "")
-                      }
-                    />
-                    <div
-                      className="w-12 h-12 rounded-full flex items-center justify-center"
-                      style={{ backgroundColor: `${subject.color}20` }}
-                    >
-                      <BookOpen
-                        className="h-6 w-6"
-                        style={{ color: subject.color }}
+              <Card
+                className={`overflow-hidden ${
+                  draggingSubjectId === subject.$id ? "opacity-70" : ""
+                } ${
+                  dragOverSubjectId === subject.$id ? "ring-2 ring-primary" : ""
+                } ${subject.archived ? "opacity-60" : ""}`}
+                draggable={canDrag}
+                onDragStart={() => handleDragStart(subject.$id || "")}
+                onDragOver={(event) => handleDragOver(event, subject.$id || "")}
+                onDrop={() => handleDrop(subject.$id || "")}
+                onDragEnd={() => {
+                  setDraggingSubjectId(null);
+                  setDragOverSubjectId(null);
+                }}
+              >
+                <div
+                  className="h-2"
+                  style={{ backgroundColor: subject.color }}
+                />
+                <CardHeader>
+                  <div className="flex items-start justify-between">
+                    <div className="flex items-center gap-3">
+                      <Checkbox
+                        checked={selectedSubjectIds.includes(subject.$id || "")}
+                        onCheckedChange={() =>
+                          toggleSubjectSelection(subject.$id || "")
+                        }
                       />
-                    </div>
-                    <div>
-                      <CardTitle>{subject.name}</CardTitle>
-                      <CardDescription>
-                        {topics[subject.$id!]?.length || 0} topics
-                      </CardDescription>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-1">
-                    {subject.archived && <Badge>Archived</Badge>}
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => handleEditSubject(subject)}
-                    >
-                      <Pencil className="h-4 w-4" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => handleDeleteSubject(subject.$id!)}
-                    >
-                      <Trash2 className="h-4 w-4 text-destructive" />
-                    </Button>
-                  </div>
-                </div>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs text-muted-foreground mb-4">
-                  <div className="rounded-md border px-2 py-1 text-center">
-                    {topics[subject.$id!]?.length || 0} topics
-                  </div>
-                  <div className="rounded-md border px-2 py-1 text-center">
-                    {taskCounts[subject.$id!] || 0} tasks
-                  </div>
-                  <div className="rounded-md border px-2 py-1 text-center">
-                    {examCounts[subject.$id!] || 0} exams
-                  </div>
-                  <div className="rounded-md border px-2 py-1 text-center">
-                    {Math.floor((studyMinutes[subject.$id!] || 0) / 60)}h{" "}
-                    {(studyMinutes[subject.$id!] || 0) % 60}m
-                  </div>
-                </div>
-                <Accordion type="single" collapsible>
-                  <AccordionItem value="topics" className="border-none">
-                    <AccordionTrigger className="py-2">
-                      <span className="flex items-center gap-2">
-                        <List className="h-4 w-4" />
-                        View Topics
-                      </span>
-                    </AccordionTrigger>
-                    <AccordionContent>
-                      <div className="space-y-2 pt-2">
-                        {topics[subject.$id!]?.map((topic) => (
-                          <div
-                            key={topic.$id}
-                            className="flex items-center justify-between p-2 rounded border hover:bg-accent group"
-                          >
-                            <span className="text-sm">{topic.name}</span>
-                            <div className="flex items-center gap-1">
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() =>
-                                  handleEditTopic(subject.$id!, topic)
-                                }
-                                className="opacity-100 sm:opacity-0 sm:group-hover:opacity-100 h-6 w-6 p-0"
-                              >
-                                <Pencil className="h-3 w-3" />
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() =>
-                                  handleDeleteTopic(subject.$id!, topic.$id!)
-                                }
-                                className="opacity-100 sm:opacity-0 sm:group-hover:opacity-100 h-6 w-6 p-0"
-                              >
-                                <Trash2 className="h-3 w-3 text-destructive" />
-                              </Button>
-                            </div>
-                          </div>
-                        ))}
-                        {activeSubjectForTopic === subject.$id ? (
-                          <form
-                            onSubmit={(e) => handleCreateTopic(e, subject.$id!)}
-                            className="flex flex-col sm:flex-row gap-2"
-                          >
-                            <Input
-                              name="topicName"
-                              placeholder="Topic name"
-                              required
-                              autoFocus
-                              className="h-8"
-                            />
-                            <Button
-                              type="submit"
-                              size="sm"
-                              className="h-8 w-full sm:w-auto"
-                            >
-                              Add
-                            </Button>
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => setActiveSubjectForTopic(null)}
-                              className="h-8 w-full sm:w-auto"
-                            >
-                              Cancel
-                            </Button>
-                          </form>
-                        ) : (
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() =>
-                              setActiveSubjectForTopic(subject.$id!)
-                            }
-                            className="w-full"
-                          >
-                            <Plus className="mr-2 h-3 w-3" />
-                            Add Topic
-                          </Button>
-                        )}
+                      <div
+                        className="w-12 h-12 rounded-full flex items-center justify-center"
+                        style={{ backgroundColor: `${subject.color}20` }}
+                      >
+                        <BookOpen
+                          className="h-6 w-6"
+                          style={{ color: subject.color }}
+                        />
                       </div>
-                    </AccordionContent>
-                  </AccordionItem>
-                </Accordion>
-              </CardContent>
-            </Card>
+                      <div>
+                        <CardTitle>{subject.name}</CardTitle>
+                        <CardDescription>
+                          {topics[subject.$id!]?.length || 0} topics
+                        </CardDescription>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      {subject.archived && <Badge>Archived</Badge>}
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => handleEditSubject(subject)}
+                      >
+                        <Pencil className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => handleDeleteSubject(subject.$id!)}
+                      >
+                        <Trash2 className="h-4 w-4 text-destructive" />
+                      </Button>
+                    </div>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs text-muted-foreground mb-4">
+                    <div className="rounded-md border px-2 py-1 text-center">
+                      {topics[subject.$id!]?.length || 0} topics
+                    </div>
+                    <div className="rounded-md border px-2 py-1 text-center">
+                      {taskCounts[subject.$id!] || 0} tasks
+                    </div>
+                    <div className="rounded-md border px-2 py-1 text-center">
+                      {examCounts[subject.$id!] || 0} exams
+                    </div>
+                    <div className="rounded-md border px-2 py-1 text-center">
+                      {Math.floor((studyMinutes[subject.$id!] || 0) / 60)}h{" "}
+                      {(studyMinutes[subject.$id!] || 0) % 60}m
+                    </div>
+                  </div>
+                  <Accordion
+                    type="single"
+                    collapsible
+                    value={
+                      expandedSubjectId === subject.$id ? "topics" : undefined
+                    }
+                    onValueChange={(value) => {
+                      setExpandedSubjectId(value ? subject.$id || null : null);
+                    }}
+                  >
+                    <AccordionItem value="topics" className="border-none">
+                      <AccordionTrigger className="py-2">
+                        <span className="flex items-center gap-2">
+                          <List className="h-4 w-4" />
+                          View Topics
+                        </span>
+                      </AccordionTrigger>
+                      <AccordionContent>
+                        <div className="space-y-2 pt-2">
+                          {topics[subject.$id!]?.map((topic) => (
+                            <div
+                              key={topic.$id}
+                              className="flex items-center justify-between p-2 rounded border hover:bg-accent group"
+                            >
+                              <span className="text-sm">{topic.name}</span>
+                              <div className="flex items-center gap-1">
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() =>
+                                    handleEditTopic(subject.$id!, topic)
+                                  }
+                                  className="opacity-100 sm:opacity-0 sm:group-hover:opacity-100 h-6 w-6 p-0"
+                                >
+                                  <Pencil className="h-3 w-3" />
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() =>
+                                    handleDeleteTopic(subject.$id!, topic.$id!)
+                                  }
+                                  className="opacity-100 sm:opacity-0 sm:group-hover:opacity-100 h-6 w-6 p-0"
+                                >
+                                  <Trash2 className="h-3 w-3 text-destructive" />
+                                </Button>
+                              </div>
+                            </div>
+                          ))}
+                          {activeSubjectForTopic === subject.$id ? (
+                            <form
+                              onSubmit={(e) =>
+                                handleCreateTopic(e, subject.$id!)
+                              }
+                              className="flex flex-col sm:flex-row gap-2"
+                            >
+                              <Input
+                                name="topicName"
+                                placeholder="Topic name"
+                                required
+                                autoFocus
+                                className="h-8"
+                              />
+                              <Button
+                                type="submit"
+                                size="sm"
+                                className="h-8 w-full sm:w-auto"
+                              >
+                                Add
+                              </Button>
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => setActiveSubjectForTopic(null)}
+                                className="h-8 w-full sm:w-auto"
+                              >
+                                Cancel
+                              </Button>
+                            </form>
+                          ) : (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() =>
+                                setActiveSubjectForTopic(subject.$id!)
+                              }
+                              className="w-full"
+                            >
+                              <Plus className="mr-2 h-3 w-3" />
+                              Add Topic
+                            </Button>
+                          )}
+                        </div>
+                      </AccordionContent>
+                    </AccordionItem>
+                  </Accordion>
+                </CardContent>
+              </Card>
+            </div>
           ))}
         </div>
       )}

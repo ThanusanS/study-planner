@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useState } from "react";
+import React, { useCallback, useMemo, useRef, useState } from "react";
 import { AuthProvider, useAuth } from "../contexts/AuthContext";
 import { LandingPage } from "../components/LandingPage";
 import { Auth } from "../components/Auth";
@@ -248,6 +248,7 @@ const AppContent: React.FC = () => {
     hasTask: false,
     hasExam: false,
   });
+  const pageContentRef = useRef<HTMLDivElement>(null);
 
   const loadOnboardingStatus = useCallback(async () => {
     if (!user) return;
@@ -278,9 +279,7 @@ const AppContent: React.FC = () => {
       }
 
       const isBrandNew =
-        !nextStatus.hasSubject &&
-        !nextStatus.hasTask &&
-        !nextStatus.hasExam;
+        !nextStatus.hasSubject && !nextStatus.hasTask && !nextStatus.hasExam;
 
       if (stored !== "active" && isBrandNew) {
         window.localStorage.setItem(storageKey, "active");
@@ -290,9 +289,7 @@ const AppContent: React.FC = () => {
 
       if (stored === "active") {
         const completed =
-          nextStatus.hasSubject &&
-          nextStatus.hasTask &&
-          nextStatus.hasExam;
+          nextStatus.hasSubject && nextStatus.hasTask && nextStatus.hasExam;
         if (completed) {
           window.localStorage.setItem(storageKey, "completed");
           setShowOnboarding(false);
@@ -349,7 +346,15 @@ const AppContent: React.FC = () => {
           {showOnboarding && (
             <OnboardingGuide
               status={onboardingStatus}
-              onNavigate={(page) => setCurrentPage(page)}
+              onNavigate={(page) => {
+                setCurrentPage(page);
+                setTimeout(() => {
+                  pageContentRef.current?.scrollIntoView({
+                    behavior: "smooth",
+                    block: "start",
+                  });
+                }, 100);
+              }}
               onDismiss={() => {
                 const resolvedUserId = user?.$id || (user as any)?.id;
                 if (resolvedUserId && typeof window !== "undefined") {
@@ -362,6 +367,7 @@ const AppContent: React.FC = () => {
               }}
             />
           )}
+          <div ref={pageContentRef}>
           {currentPage === "dashboard" && (
             <Dashboard
               onOpenAiQuiz={() => setCurrentPage("ai-quiz")}
@@ -379,6 +385,7 @@ const AppContent: React.FC = () => {
           )}
           {currentPage === "pomodoro" && <PomodoroTimer />}
           {currentPage === "ai-quiz" && <AiQuizGenerator />}
+          </div>
         </div>
       </main>
     </div>
