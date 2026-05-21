@@ -48,9 +48,13 @@ import {
 
 type DashboardProps = {
   onOpenAiQuiz?: () => void;
+  onOnboardingProgress?: () => void;
 };
 
-export const Dashboard: React.FC<DashboardProps> = ({ onOpenAiQuiz }) => {
+export const Dashboard: React.FC<DashboardProps> = ({
+  onOpenAiQuiz,
+  onOnboardingProgress,
+}) => {
   const { user } = useAuth();
   const [tasks, setTasks] = useState<Task[]>([]);
   const [exams, setExams] = useState<Exam[]>([]);
@@ -202,6 +206,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenAiQuiz }) => {
       setTasks([newTask, ...tasks]);
       setQuickTitle("");
       toast.success("Task added to today's schedule!");
+      onOnboardingProgress?.();
     } catch (error) {
       console.error("Error quick adding task:", error);
       toast.error("Failed to add task");

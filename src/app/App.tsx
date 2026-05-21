@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useCallback, useMemo, useState } from "react";
 import { AuthProvider, useAuth } from "../contexts/AuthContext";
 import { LandingPage } from "../components/LandingPage";
 import { Auth } from "../components/Auth";
@@ -8,10 +8,12 @@ import { SubjectsManager } from "../components/SubjectsManager";
 import { ExamsManager } from "../components/ExamsManager";
 import { PomodoroTimer } from "../components/PomodoroTimer";
 import { AiQuizGenerator } from "../components/AiQuizGenerator";
+import { OnboardingGuide } from "../components/OnboardingGuide";
 import { PomodoroProvider } from "../contexts/PomodoroContext";
 import { Button } from "./components/ui/button";
 import { Toaster } from "./components/ui/sonner";
 import { ThemeProvider } from "next-themes";
+import databaseService from "../services/databaseService";
 import {
   LayoutDashboard,
   CheckSquare,
@@ -240,6 +242,68 @@ const Sidebar: React.FC<{
 const AppContent: React.FC = () => {
   const { user, loading } = useAuth();
   const [currentPage, setCurrentPage] = useState<Page>("landing");
+  const [showOnboarding, setShowOnboarding] = useState(false);
+  const [onboardingStatus, setOnboardingStatus] = useState({
+    hasSubject: false,
+    hasTask: false,
+    hasExam: false,
+  });
+
+  const loadOnboardingStatus = useCallback(async () => {
+    if (!user) return;
+    const resolvedUserId = user.$id || (user as any)?.id;
+    if (!resolvedUserId) return;
+
+    try {
+      const [subjects, tasks, exams] = await Promise.all([
+        databaseService.getSubjects(resolvedUserId),
+        databaseService.getTasks(resolvedUserId, 1),
+        databaseService.getExams(resolvedUserId),
+      ]);
+
+      const nextStatus = {
+        hasSubject: subjects.length > 0,
+        hasTask: tasks.length > 0,
+        hasExam: exams.length > 0,
+      };
+      setOnboardingStatus(nextStatus);
+
+      if (typeof window === "undefined") return;
+      const storageKey = `studyPlannerOnboarding:${resolvedUserId}`;
+      const stored = window.localStorage.getItem(storageKey);
+
+      if (stored === "completed") {
+        setShowOnboarding(false);
+        return;
+      }
+
+      const isBrandNew =
+        !nextStatus.hasSubject &&
+        !nextStatus.hasTask &&
+        !nextStatus.hasExam;
+
+      if (stored !== "active" && isBrandNew) {
+        window.localStorage.setItem(storageKey, "active");
+        setShowOnboarding(true);
+        return;
+      }
+
+      if (stored === "active") {
+        const completed =
+          nextStatus.hasSubject &&
+          nextStatus.hasTask &&
+          nextStatus.hasExam;
+        if (completed) {
+          window.localStorage.setItem(storageKey, "completed");
+          setShowOnboarding(false);
+        } else {
+          setShowOnboarding(true);
+        }
+      }
+    } catch (error) {
+      console.error("Error loading onboarding status:", error);
+    }
+  }, [user]);
 
   // Auto-redirect to dashboard when user logs in
   React.useEffect(() => {
@@ -247,6 +311,14 @@ const AppContent: React.FC = () => {
       setCurrentPage("dashboard");
     }
   }, [user, currentPage]);
+
+  React.useEffect(() => {
+    if (user) {
+      loadOnboardingStatus();
+    } else {
+      setShowOnboarding(false);
+    }
+  }, [user, loadOnboardingStatus]);
 
   if (loading) {
     return (
@@ -274,12 +346,37 @@ const AppContent: React.FC = () => {
       <Sidebar currentPage={currentPage} onPageChange={setCurrentPage} />
       <main className="flex-1 w-full min-w-0 transition-all duration-300">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8 lg:py-10">
-          {currentPage === "dashboard" && (
-            <Dashboard onOpenAiQuiz={() => setCurrentPage("ai-quiz")} />
+          {showOnboarding && (
+            <OnboardingGuide
+              status={onboardingStatus}
+              onNavigate={(page) => setCurrentPage(page)}
+              onDismiss={() => {
+                const resolvedUserId = user?.$id || (user as any)?.id;
+                if (resolvedUserId && typeof window !== "undefined") {
+                  window.localStorage.setItem(
+                    `studyPlannerOnboarding:${resolvedUserId}`,
+                    "completed",
+                  );
+                }
+                setShowOnboarding(false);
+              }}
+            />
           )}
-          {currentPage === "tasks" && <TasksManager />}
-          {currentPage === "subjects" && <SubjectsManager />}
-          {currentPage === "exams" && <ExamsManager />}
+          {currentPage === "dashboard" && (
+            <Dashboard
+              onOpenAiQuiz={() => setCurrentPage("ai-quiz")}
+              onOnboardingProgress={loadOnboardingStatus}
+            />
+          )}
+          {currentPage === "tasks" && (
+            <TasksManager onOnboardingProgress={loadOnboardingStatus} />
+          )}
+          {currentPage === "subjects" && (
+            <SubjectsManager onOnboardingProgress={loadOnboardingStatus} />
+          )}
+          {currentPage === "exams" && (
+            <ExamsManager onOnboardingProgress={loadOnboardingStatus} />
+          )}
           {currentPage === "pomodoro" && <PomodoroTimer />}
           {currentPage === "ai-quiz" && <AiQuizGenerator />}
         </div>

@@ -89,7 +89,13 @@ const SUBJECT_COLORS = [
   "#f43f5e",
 ];
 
-export const SubjectsManager: React.FC = () => {
+type SubjectsManagerProps = {
+  onOnboardingProgress?: () => void;
+};
+
+export const SubjectsManager: React.FC<SubjectsManagerProps> = ({
+  onOnboardingProgress,
+}) => {
   const { user } = useAuth();
   const [subjects, setSubjects] = useState<Subject[]>([]);
   const [topics, setTopics] = useState<Record<string, Topic[]>>({});
@@ -409,6 +415,7 @@ export const SubjectsManager: React.FC = () => {
       setIsSubjectDialogOpen(false);
       toast.success("Subject created successfully");
       (e.target as HTMLFormElement).reset();
+      onOnboardingProgress?.();
     } catch (error) {
       console.error("Error creating subject:", error);
       toast.error("Failed to create subject");

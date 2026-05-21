@@ -56,7 +56,13 @@ import {
   parseISO,
 } from "date-fns";
 
-export const TasksManager: React.FC = () => {
+type TasksManagerProps = {
+  onOnboardingProgress?: () => void;
+};
+
+export const TasksManager: React.FC<TasksManagerProps> = ({
+  onOnboardingProgress,
+}) => {
   const { user } = useAuth();
   const [tasks, setTasks] = useState<Task[]>([]);
   const [subjects, setSubjects] = useState<Subject[]>([]);
@@ -205,6 +211,7 @@ export const TasksManager: React.FC = () => {
       setIsDialogOpen(false);
       toast.success("Task created successfully");
       (e.target as HTMLFormElement).reset();
+      onOnboardingProgress?.();
     } catch (error) {
       console.error("Error creating task:", error);
       toast.error("Failed to create task");

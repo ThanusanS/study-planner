@@ -54,7 +54,13 @@ import {
   startOfDay,
 } from "date-fns";
 
-export const ExamsManager: React.FC = () => {
+type ExamsManagerProps = {
+  onOnboardingProgress?: () => void;
+};
+
+export const ExamsManager: React.FC<ExamsManagerProps> = ({
+  onOnboardingProgress,
+}) => {
   const { user } = useAuth();
   const [exams, setExams] = useState<Exam[]>([]);
   const [subjects, setSubjects] = useState<Subject[]>([]);
@@ -156,6 +162,7 @@ export const ExamsManager: React.FC = () => {
       setIsDialogOpen(false);
       toast.success("Exam added successfully");
       (e.target as HTMLFormElement).reset();
+      onOnboardingProgress?.();
     } catch (error) {
       console.error("Error creating exam:", error);
       toast.error("Failed to add exam");
