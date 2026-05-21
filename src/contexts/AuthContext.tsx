@@ -1,18 +1,21 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
-import authService, { User } from '../services/authService';
+import React, { createContext, useContext, useState, useEffect } from "react";
+import authService, { User } from "../services/authService";
 
 interface AuthContextType {
   user: User | null;
   loading: boolean;
   error: string | null;
   login: (email: string, password: string) => Promise<void>;
+  loginWithGoogle: () => Promise<void>;
   register: (email: string, password: string, name: string) => Promise<void>;
   logout: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
+  children,
+}) => {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -30,7 +33,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setUser(null);
       // Don't set error on initial load - user just isn't logged in
       if (error?.code && error.code !== 401) {
-        setError(error?.message || 'Failed to connect to backend');
+        setError(error?.message || "Failed to connect to backend");
       }
     } finally {
       setLoading(false);
@@ -40,6 +43,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const login = async (email: string, password: string) => {
     await authService.login(email, password);
     await checkAuth();
+  };
+
+  const loginWithGoogle = async () => {
+    await authService.loginWithGoogle();
   };
 
   const register = async (email: string, password: string, name: string) => {
@@ -53,7 +60,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   return (
-    <AuthContext.Provider value={{ user, loading, error, login, register, logout }}>
+    <AuthContext.Provider
+      value={{ user, loading, error, login, loginWithGoogle, register, logout }}
+    >
       {children}
     </AuthContext.Provider>
   );
@@ -62,7 +71,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 export const useAuth = () => {
   const context = useContext(AuthContext);
   if (!context) {
-    throw new Error('useAuth must be used within AuthProvider');
+    throw new Error("useAuth must be used within AuthProvider");
   }
   return context;
 };

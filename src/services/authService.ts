@@ -8,6 +8,12 @@ export interface User {
 }
 
 class AuthService {
+  // Start Google OAuth sign-in
+  async loginWithGoogle(): Promise<void> {
+    const redirectUrl = window.location.origin;
+    await account.createOAuth2Session("google", redirectUrl, redirectUrl);
+  }
+
   // Register new user
   async register(email: string, password: string, name: string): Promise<User> {
     try {

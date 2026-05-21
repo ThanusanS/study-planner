@@ -19,6 +19,15 @@ This Study Planner application uses Appwrite as the backend service for authenti
 2. Enable **Email/Password** authentication
 3. Configure session length (recommended: 30 days)
 
+### Google OAuth
+
+1. In the Auth section, enable **Google** as an OAuth provider
+2. Create an OAuth client in Google Cloud Console
+3. Copy the Google Client ID and Client Secret into Appwrite
+4. Add your app URL to Appwrite **Platforms** as a Web app
+5. Include both your local dev URL and production URL in the allowed redirect flow
+6. The frontend uses Appwrite's OAuth redirect flow, so no Google API key is needed in the browser
+
 ## Step 3: Create Database
 
 1. Go to **Databases** section
