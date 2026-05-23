@@ -1,19 +1,25 @@
 <svg viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
   <defs>
-    <!-- Bright, high-contrast green-to-yellow gradient for high visibility in browser tabs -->
+    <!-- High-visibility green-to-gold gradient, saturated for tiny favicon sizes -->
     <linearGradient id="logo-cap-grad" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stopColor="#22c55e" /> <!-- Vivid Green -->
-      <stop offset="100%" stopColor="#facc15" /> <!-- Vivid Yellow -->
+      <stop offset="0%" stopColor="#059669" /> <!-- Deep Emerald Green -->
+      <stop offset="100%" stopColor="#eab308" /> <!-- Rich Gold Yellow -->
     </linearGradient>
   </defs>
+
+  <!-- Dark outline ring for contrast on both light and dark browser tabs -->
+  <rect x="1" y="1" width="30" height="30" rx="8" fill="none" stroke="rgba(0,0,0,0.25)" strokeWidth="1"/>
 
   <!-- Solid Background Squircle -->
   <rect x="2" y="2" width="28" height="28" rx="7.5" fill="url(#logo-cap-grad)" />
 
+  <!-- Inner highlight for depth -->
+  <rect x="3" y="3" width="26" height="14" rx="6" fill="rgba(255,255,255,0.15)" />
+
   <!-- Graduation Cap Diamond Top -->
   <path
     d="M 6,13 L 16,8.5 L 26,13 L 16,17.5 Z"
-    fill="rgba(255, 255, 255, 0.15)"
+    fill="rgba(255, 255, 255, 0.2)"
     stroke="#ffffff"
     strokeWidth="2.2"
     strokeLinejoin="round"
@@ -32,10 +38,9 @@
   <path
     d="M 22,12.5 L 24,15 V 19 C 24,19.8 23.5,20.2 22.7,20.2"
     stroke="#ffffff"
-    strokeWidth="1.6"
+    strokeWidth="1.8"
     strokeLinecap="round"
     strokeLinejoin="round"
-    opacity="0.9"
   />
 
   <!-- AI Sparkle / Magic Star -->
@@ -44,3 +49,4 @@
     fill="#ffffff"
   />
 </svg>
+

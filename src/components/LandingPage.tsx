@@ -118,6 +118,78 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onGetStarted }) => {
   const heroOpacity = useTransform(scrollYProgress, [0, 0.35], [1, 0]);
   const heroScale = useTransform(scrollYProgress, [0, 0.35], [1, 0.9]);
 
+  // Interactive dashboard states
+  const [activeTab, setActiveTab] = useState<'planner' | 'pomodoro' | 'analytics'>('planner');
+  const [timerSeconds, setTimerSeconds] = useState(1500); // 25:00
+  const [timerIsRunning, setTimerIsRunning] = useState(false);
+  const [rescheduling, setRescheduling] = useState(false);
+  const [aiMessage, setAiMessage] = useState("Hi! I'm your AI Study Assistant. Click 'Reschedule with AI' to optimize your day.");
+  
+  // Custom mock task list
+  const [mockTasks, setMockTasks] = useState([
+    { id: 1, t: "Review Chapter 12 — Thermodynamics", d: "Physics", done: false, p: "high", time: "2:00 PM" },
+    { id: 2, t: "Practice integrals problem set", d: "Math", done: false, p: "high", time: "4:30 PM" },
+    { id: 3, t: "Write essay conclusion — History", d: "History", done: false, p: "med", time: "11:00 AM" },
+    { id: 4, t: "Read Chapter 9 — Organic Chemistry", d: "Chemistry", done: false, p: "med", time: "3:30 PM" },
+    { id: 5, t: "Flashcard review — Biology terms", d: "Biology", done: true, p: "low", time: "9:00 AM" },
+  ]);
+
+  // Floating particles
+  const particles = [
+    { left: "12%", top: "25%", size: "w-3 h-3", delay: 0, duration: 8 },
+    { left: "82%", top: "18%", size: "w-4 h-4", delay: 1, duration: 10 },
+    { left: "78%", top: "68%", size: "w-2 h-2", delay: 2, duration: 7 },
+    { left: "14%", top: "62%", size: "w-5 h-5", delay: 0.5, duration: 12 },
+    { left: "48%", top: "12%", size: "w-3 h-3", delay: 1.5, duration: 9 },
+    { left: "92%", top: "48%", size: "w-2 h-2", delay: 3, duration: 6 },
+    { left: "6%", top: "42%", size: "w-4 h-4", delay: 2.5, duration: 11 },
+  ];
+
+  useEffect(() => {
+    let interval: any = null;
+    if (timerIsRunning) {
+      interval = setInterval(() => {
+        setTimerSeconds((prev) => {
+          if (prev <= 1) {
+            setTimerIsRunning(false);
+            return 1500;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+    } else {
+      clearInterval(interval);
+    }
+    return () => clearInterval(interval);
+  }, [timerIsRunning]);
+
+  const formatTime = (secs: number) => {
+    const m = Math.floor(secs / 60).toString().padStart(2, "0");
+    const s = (secs % 60).toString().padStart(2, "0");
+    return `${m}:${s}`;
+  };
+
+  const handleAiReschedule = () => {
+    if (rescheduling) return;
+    setRescheduling(true);
+    setAiMessage("Analyzing deadlines & subjects difficulty...");
+    
+    setTimeout(() => {
+      setAiMessage("Re-prioritizing tasks: Physics exam is coming up soon.");
+      setTimeout(() => {
+        setMockTasks([
+          { id: 1, t: "Review Chapter 12 — Thermodynamics", d: "Physics", done: false, p: "high", time: "10:00 AM" },
+          { id: 4, t: "Read Chapter 9 — Organic Chemistry", d: "Chemistry", done: false, p: "high", time: "12:00 PM" },
+          { id: 2, t: "Practice integrals problem set", d: "Math", done: false, p: "med", time: "2:00 PM" },
+          { id: 3, t: "Write essay conclusion — History", d: "History", done: false, p: "med", time: "4:00 PM" },
+          { id: 5, t: "Flashcard review — Biology terms", d: "Biology", done: true, p: "low", time: "9:00 AM" },
+        ]);
+        setAiMessage("Schedule optimized! Shifted higher priority chemistry and physics tasks earlier.");
+        setRescheduling(false);
+      }, 1500);
+    }, 1000);
+  };
+
   useEffect(() => {
     const onScroll = () => setScrollY(window.scrollY);
     window.addEventListener("scroll", onScroll, { passive: true });
@@ -194,11 +266,11 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onGetStarted }) => {
   ];
 
   const testimonials = [
-    { name: "Sarah Chen", role: "Medical Student, Harvard", text: "StudyPlanner completely changed how I prepare for exams. The AI task manager is like having a personal academic coach. My GPA jumped from 3.2 to 3.9!", rating: 5, avatar: "SC", gradient: "from-violet-400 to-purple-600" },
-    { name: "Marcus Johnson", role: "Engineering Student, MIT", text: "The Pomodoro timer combined with streak tracking keeps me focused for hours. I've never been this productive. 10/10 recommend to every student.", rating: 5, avatar: "MJ", gradient: "from-blue-400 to-cyan-600" },
-    { name: "Priya Patel", role: "Law Student, Oxford", text: "I manage 8 subjects effortlessly. The exam countdown feature is a lifesaver. The AI quiz generator helped me ace my bar exam prep!", rating: 5, avatar: "PP", gradient: "from-pink-400 to-rose-600" },
-    { name: "Alex Rivera", role: "CS Student, Stanford", text: "This is what Notion and Notion cal combined should feel like for students. Clean, fast, and actually intelligent. The progress analytics blew my mind.", rating: 5, avatar: "AR", gradient: "from-emerald-400 to-teal-600" },
-    { name: "Yuki Tanaka", role: "Pre-med, Johns Hopkins", text: "Went from barely passing to top of my class in one semester. The AI prioritization makes sure I always work on the most important things first.", rating: 5, avatar: "YT", gradient: "from-orange-400 to-amber-600" },
+    { name: "Sarah C.", role: "CS Undergraduate", text: "The AI rescheduling is incredibly useful when deadlines stack up. Instead of spending 30 minutes moving tasks around, I just click a button and let it prioritize my week.", rating: 5, avatar: "SC", gradient: "from-violet-400 to-purple-600" },
+    { name: "Marcus J.", role: "Engineering Student", text: "Having the Pomodoro timer and task list on the exact same dashboard keeps me focused. Clean, fast, and does exactly what it promises.", rating: 5, avatar: "MJ", gradient: "from-blue-400 to-cyan-600" },
+    { name: "Priya P.", role: "Law Student", text: "I can organize all my subjects and set countdown trackers for my final exams. The layout is premium, fast, and completely free.", rating: 5, avatar: "PP", gradient: "from-pink-400 to-rose-600" },
+    { name: "Alex R.", role: "High School Senior", text: "This replaced three different tools for me. I keep my calendar, focus timer, and daily tasks in one unified space. Love the clean neon aesthetic.", rating: 5, avatar: "AR", gradient: "from-emerald-400 to-teal-600" },
+    { name: "Yuki T.", role: "Pre-med Student", text: "Simple, easy to navigate, and extremely fast. It's refreshing to use an academic tool that doesn't push subscription pop-ups every five minutes.", rating: 5, avatar: "YT", gradient: "from-orange-400 to-amber-600" },
   ];
 
   const faqItems = [
@@ -211,10 +283,10 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onGetStarted }) => {
   ];
 
   const stats = [
-    { icon: Users, value: "100K+", label: "Active Students", color: "text-violet-400" },
-    { icon: CheckSquare, value: "2M+", label: "Tasks Completed", color: "text-blue-400" },
-    { icon: Clock, value: "500K+", label: "Study Hours Logged", color: "text-emerald-400" },
-    { icon: Award, value: "98%", label: "Satisfaction Rate", color: "text-amber-400" },
+    { icon: Users, value: "Free", label: "No Subscriptions or Ads", color: "text-violet-400" },
+    { icon: CheckSquare, value: "AI", label: "Smart Task Prioritization", color: "text-blue-400" },
+    { icon: Clock, value: "2 Min", label: "Quick Academic Setup", color: "text-emerald-400" },
+    { icon: Award, value: "100%", label: "Encrypted & Private Data", color: "text-amber-400" },
   ];
 
   return (
@@ -407,6 +479,28 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onGetStarted }) => {
       {/* ─── HERO ───────────────────────────────────────────────────────────── */}
       <section className="relative min-h-screen flex items-center justify-center px-4 pt-16 overflow-hidden">
         <div className="absolute inset-0 lp-grid-bg opacity-100" />
+        
+        {/* Floating particles background layer */}
+        <div className="absolute inset-0 overflow-hidden pointer-events-none">
+          {particles.map((p, i) => (
+            <motion.div
+              key={i}
+              className={`absolute ${p.size} rounded-full bg-violet-500/30 blur-[1px]`}
+              style={{ left: p.left, top: p.top }}
+              animate={{
+                y: [0, -40, 0],
+                x: [0, 20, 0],
+                opacity: [0.2, 0.6, 0.2],
+              }}
+              transition={{
+                duration: p.duration,
+                repeat: Infinity,
+                delay: p.delay,
+                ease: "easeInOut",
+              }}
+            />
+          ))}
+        </div>
 
         <motion.div style={{ opacity: heroOpacity, scale: heroScale }} className="relative z-10 max-w-7xl mx-auto w-full">
           <div className="text-center">
@@ -415,7 +509,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onGetStarted }) => {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.6 }}
-              className="flex justify-center mb-8"
+              className="flex justify-center mb-5"
             >
               <div className="lp-badge-pill">
                 <Sparkles className="w-4 h-4 text-violet-400" />
@@ -429,7 +523,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onGetStarted }) => {
               initial={{ opacity: 0, y: 30 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.7, delay: 0.1 }}
-              className="text-4xl sm:text-6xl md:text-7xl lg:text-[88px] font-black leading-[1.05] tracking-tight mb-6 lp-font-display"
+              className="text-4xl sm:text-6xl md:text-7xl lg:text-[88px] font-black leading-[1.05] tracking-tight mb-4 lp-font-display"
             >
               <span className="text-white">Study Smarter.</span>
               <br />
@@ -441,7 +535,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onGetStarted }) => {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.6, delay: 0.2 }}
-              className="text-lg sm:text-xl md:text-2xl text-slate-400 max-w-2xl mx-auto leading-relaxed mb-10"
+              className="text-lg sm:text-xl md:text-2xl text-slate-200 max-w-2xl mx-auto leading-relaxed mb-7"
             >
               The all-in-one academic platform with AI task management, Pomodoro focus sessions, and intelligent analytics — completely free.
             </motion.p>
@@ -451,13 +545,13 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onGetStarted }) => {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.6, delay: 0.3 }}
-              className="flex flex-col sm:flex-row gap-4 justify-center mb-12"
+              className="flex flex-col sm:flex-row gap-4 justify-center mb-8"
             >
               <button
                 onClick={onGetStarted}
-                className="lp-btn-primary px-8 py-4 rounded-2xl text-white text-lg font-semibold flex items-center justify-center gap-3 group"
+                className="lp-btn-primary px-8 py-4 rounded-2xl text-white text-lg font-semibold flex items-center justify-center gap-3 group animate-in zoom-in-95 duration-500"
               >
-                Start for free — no card needed
+                Create My Study Plan
                 <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
               </button>
               <button
@@ -474,42 +568,53 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onGetStarted }) => {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               transition={{ duration: 0.8, delay: 0.5 }}
-              className="flex flex-wrap items-center justify-center gap-6 sm:gap-10"
+              className="flex flex-col items-center justify-center gap-4 mb-12"
             >
-              <div className="flex items-center gap-3">
-                <div className="flex -space-x-2">
-                  {[
-                    { g: "from-violet-400 to-purple-600", l: "A" },
-                    { g: "from-blue-400 to-cyan-500", l: "S" },
-                    { g: "from-pink-400 to-rose-600", l: "M" },
-                    { g: "from-emerald-400 to-teal-600", l: "J" },
-                    { g: "from-amber-400 to-orange-600", l: "K" },
-                  ].map((av, i) => (
-                    <div
-                      key={i}
-                      className={`w-9 h-9 rounded-full bg-gradient-to-br ${av.g} border-2 flex items-center justify-center text-white text-xs font-bold`}
-                      style={{ borderColor: "#050510" }}
-                    >
-                      {av.l}
-                    </div>
-                  ))}
-                </div>
-                <div>
-                  <div className="flex items-center gap-1">
-                    {[1,2,3,4,5].map(i => <Star key={i} className="w-3.5 h-3.5 fill-amber-400 text-amber-400" />)}
+              <div className="flex flex-wrap items-center justify-center gap-6 sm:gap-10">
+                <div className="flex items-center gap-3">
+                  <div className="flex -space-x-2">
+                    {[
+                      { g: "from-violet-400 to-purple-600", l: "S" },
+                      { g: "from-blue-400 to-cyan-500", l: "M" },
+                      { g: "from-pink-400 to-rose-600", l: "A" },
+                      { g: "from-emerald-400 to-teal-600", l: "J" },
+                      { g: "from-amber-400 to-orange-600", l: "K" },
+                    ].map((av, i) => (
+                      <div
+                        key={i}
+                        className={`w-9 h-9 rounded-full bg-gradient-to-br ${av.g} border-2 flex items-center justify-center text-white text-xs font-bold`}
+                        style={{ borderColor: "#050510" }}
+                      >
+                        {av.l}
+                      </div>
+                    ))}
                   </div>
-                  <p className="text-slate-400 text-sm mt-0.5"><span className="text-white font-semibold">100,000+</span> students trust us</p>
+                  <div>
+                    <div className="flex items-center gap-1">
+                      {[1,2,3,4,5].map(i => <Star key={i} className="w-3.5 h-3.5 fill-amber-400 text-amber-400" />)}
+                    </div>
+                    <p className="text-slate-300 text-sm mt-0.5"><span className="text-white font-semibold">Join the early beta</span> of ambitious learners</p>
+                  </div>
+                </div>
+                <div className="h-8 w-px bg-white/10 hidden sm:block" />
+                <div className="flex items-center gap-2 text-slate-300 text-sm">
+                  <Shield className="w-4 h-4 text-emerald-400" />
+                  <span>100% free & open</span>
+                </div>
+                <div className="h-8 w-px bg-white/10 hidden sm:block" />
+                <div className="flex items-center gap-2 text-slate-300 text-sm">
+                  <Zap className="w-4 h-4 text-yellow-400" />
+                  <span>Setup in 2 minutes</span>
                 </div>
               </div>
-              <div className="h-8 w-px bg-white/10 hidden sm:block" />
-              <div className="flex items-center gap-2 text-slate-400 text-sm">
-                <Shield className="w-4 h-4 text-emerald-400" />
-                <span>100% free forever</span>
-              </div>
-              <div className="h-8 w-px bg-white/10 hidden sm:block" />
-              <div className="flex items-center gap-2 text-slate-400 text-sm">
-                <Zap className="w-4 h-4 text-yellow-400" />
-                <span>Setup in 2 minutes</span>
+
+              {/* Success Quote / Micro Testimonial */}
+              <div className="max-w-xl bg-white/[0.03] border border-white/[0.08] rounded-2xl py-2.5 px-4 backdrop-blur-md flex items-center gap-2.5 mt-2 text-left shadow-lg shadow-black/35">
+                <span className="text-violet-400 text-xl font-serif leading-none">“</span>
+                <p className="text-slate-200 text-xs sm:text-sm leading-snug">
+                  <span className="text-white font-semibold">Our mission:</span> A distraction-free study space with no ads, no paywalls, and no credit cards. Designed entirely to help students succeed.
+                  <span className="text-slate-400 block sm:inline sm:ml-2">— The StudyPlanner Team</span>
+                </p>
               </div>
             </motion.div>
           </div>
@@ -521,102 +626,281 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onGetStarted }) => {
             transition={{ duration: 0.9, delay: 0.6 }}
             className="mt-20 relative max-w-5xl mx-auto lp-float"
           >
+            {/* Ambient animated gradient glow backdrop */}
+            <div className="absolute -inset-1 rounded-[2.1rem] bg-gradient-to-r from-violet-600 via-indigo-600 to-cyan-500 opacity-20 blur-xl group-hover:opacity-30 transition duration-1000" />
+
             <div
               className="rounded-3xl overflow-hidden relative"
               style={{
-                background: "linear-gradient(135deg, rgba(124,58,237,0.15), rgba(79,70,229,0.1), rgba(14,165,233,0.08))",
-                border: "1px solid rgba(255,255,255,0.1)",
-                boxShadow: "0 40px 120px rgba(124,58,237,0.3), 0 0 0 1px rgba(255,255,255,0.05), inset 0 1px 0 rgba(255,255,255,0.1)",
-                backdropFilter: "blur(20px)",
+                background: "linear-gradient(135deg, rgba(16,16,36,0.92) 0%, rgba(10,10,22,0.88) 100%)",
+                border: "1px solid rgba(255,255,255,0.14)",
+                boxShadow: "0 40px 120px rgba(5,5,16,0.95), 0 0 0 1px rgba(255,255,255,0.08), inset 0 1px 0 rgba(255,255,255,0.15)",
+                backdropFilter: "blur(12px)",
               }}
             >
               {/* Window bar */}
-              <div className="flex items-center gap-2 px-6 py-4 border-b" style={{ borderColor: "rgba(255,255,255,0.08)", background: "rgba(255,255,255,0.03)" }}>
-                <div className="w-3 h-3 rounded-full bg-red-500/70" />
-                <div className="w-3 h-3 rounded-full bg-amber-500/70" />
-                <div className="w-3 h-3 rounded-full bg-emerald-500/70" />
-                <div className="flex-1 mx-4">
-                  <div className="bg-white/5 rounded-lg px-4 py-1.5 text-slate-500 text-xs text-center w-full max-w-xs mx-auto">studyplanner.app/dashboard</div>
+              <div className="flex flex-col sm:flex-row items-center gap-4 px-6 py-4 border-b border-white/[0.12] bg-white/[0.02]">
+                <div className="flex items-center gap-2 self-start sm:self-center">
+                  <div className="w-3 h-3 rounded-full bg-red-500/70" />
+                  <div className="w-3 h-3 rounded-full bg-amber-500/70" />
+                  <div className="w-3 h-3 rounded-full bg-emerald-500/70" />
+                </div>
+                
+                {/* Tabs switcher inside window title area (Responsive & compact for 390px mobile) */}
+                <div className="flex bg-white/[0.08] p-1 rounded-xl w-full sm:w-auto sm:mx-auto max-w-md border border-white/[0.08]">
+                  {[
+                    { id: 'planner', label: 'AI Planner', icon: Brain },
+                    { id: 'pomodoro', label: 'Focus Mode', icon: Timer },
+                    { id: 'analytics', label: 'Analytics', icon: BarChart3 }
+                  ].map(tab => (
+                    <button
+                      key={tab.id}
+                      onClick={() => setActiveTab(tab.id as any)}
+                      className={`flex-1 sm:flex-initial flex items-center justify-center gap-1.5 px-2.5 sm:px-4 py-1.5 rounded-lg text-[10px] sm:text-xs font-bold transition-all cursor-pointer ${activeTab === tab.id ? 'bg-white/10 text-white shadow-md border border-white/10' : 'text-slate-300 hover:text-white hover:bg-white/[0.02]'}`}
+                    >
+                      <tab.icon className="w-3.5 h-3.5" />
+                      <span>{tab.label}</span>
+                    </button>
+                  ))}
+                </div>
+
+                <div className="hidden md:block">
+                  <div className="bg-white/5 rounded-lg px-4 py-1 text-slate-300 text-xs text-center">studyplanner.app/dashboard</div>
                 </div>
               </div>
 
-              {/* Mock dashboard */}
-              <div className="p-4 sm:p-6 grid grid-cols-1 md:grid-cols-3 gap-4">
-                {/* Stats row */}
-                <div className="md:col-span-3 grid grid-cols-2 sm:grid-cols-4 gap-3">
-                  {[
-                    { label: "Tasks Done", val: "24/30", color: "from-violet-500 to-indigo-600", icon: CheckSquare },
-                    { label: "Focus Time", val: "4.5h", color: "from-blue-500 to-cyan-600", icon: Clock },
-                    { label: "Study Streak", val: "🔥 14 days", color: "from-orange-500 to-red-600", icon: Flame },
-                    { label: "Exam In", val: "3 days", color: "from-pink-500 to-rose-600", icon: Bell },
-                  ].map((s, i) => (
-                    <div key={i} className="rounded-2xl p-2.5 sm:p-4" style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.07)" }}>
-                      <div className={`w-8 h-8 rounded-xl bg-gradient-to-br ${s.color} flex items-center justify-center mb-2`}>
-                        <s.icon className="w-4 h-4 text-white" />
-                      </div>
-                      <div className="text-white font-bold text-sm sm:text-base">{s.val}</div>
-                      <div className="text-slate-500 text-xs mt-0.5">{s.label}</div>
-                    </div>
-                  ))}
-                </div>
-
-                {/* Task list */}
-                <div className="md:col-span-2 rounded-2xl p-4" style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)" }}>
-                  <div className="flex items-center justify-between mb-4">
-                    <span className="text-white font-semibold text-sm">Today's Tasks</span>
-                    <span className="text-violet-400 text-xs">AI optimized</span>
-                  </div>
-                  {[
-                    { t: "Review Chapter 12 — Thermodynamics", d: "Physics", done: true, p: "high" },
-                    { t: "Practice integrals problem set", d: "Math", done: true, p: "high" },
-                    { t: "Write essay conclusion — History", d: "History", done: false, p: "med" },
-                    { t: "Read Chapter 9 — Organic Chemistry", d: "Chemistry", done: false, p: "med" },
-                    { t: "Flashcard review — Biology terms", d: "Biology", done: false, p: "low" },
-                  ].map((task, i) => (
-                    <div key={i} className="flex items-center gap-3 py-2 border-b last:border-b-0" style={{ borderColor: "rgba(255,255,255,0.05)" }}>
-                      <div className={`w-5 h-5 rounded flex items-center justify-center flex-shrink-0 ${task.done ? "bg-emerald-500" : "border border-white/20"}`}>
-                        {task.done && <Check className="w-3 h-3 text-white" />}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className={`text-xs sm:text-sm truncate ${task.done ? "text-slate-500 line-through" : "text-white/80"}`}>{task.t}</p>
-                        <p className="text-slate-600 text-xs">{task.d}</p>
-                      </div>
-                      <span className={`text-xs px-2 py-0.5 rounded-full flex-shrink-0 ${task.p === "high" ? "bg-red-500/20 text-red-400" : task.p === "med" ? "bg-amber-500/20 text-amber-400" : "bg-slate-500/20 text-slate-400"}`}>
-                        {task.p}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-
-                {/* Progress panel */}
-                <div className="rounded-2xl p-4" style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)" }}>
-                  <p className="text-white font-semibold text-sm mb-4">Weekly Progress</p>
-                  <div className="space-y-3">
-                    {[
-                      { s: "Physics", p: 82, c: "#7c3aed" },
-                      { s: "Math", p: 67, c: "#0ea5e9" },
-                      { s: "Chemistry", p: 45, c: "#10b981" },
-                      { s: "History", p: 90, c: "#f59e0b" },
-                      { s: "Biology", p: 38, c: "#ec4899" },
-                    ].map((sub, i) => (
-                      <div key={i}>
-                        <div className="flex justify-between text-xs mb-1">
-                          <span className="text-slate-400">{sub.s}</span>
-                          <span style={{ color: sub.c }}>{sub.p}%</span>
+              {/* Main Tab Content */}
+              <div className="p-4 sm:p-6 min-h-[350px]">
+                {activeTab === 'planner' && (
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6 animate-in fade-in duration-300">
+                    {/* Left: Interactive Task List */}
+                    <div className="md:col-span-2 rounded-2xl p-4 bg-white/[0.04] border border-white/[0.08]">
+                      <div className="flex items-center justify-between mb-4">
+                        <div>
+                          <span className="text-white font-black text-sm block">Today's Tasks</span>
+                          <span className="text-slate-350 text-xs font-medium">Sorted by priority</span>
                         </div>
-                        <div className="h-1.5 rounded-full bg-white/5 overflow-hidden">
-                          <div className="h-full rounded-full transition-all" style={{ width: `${sub.p}%`, background: sub.c }} />
+                        <button
+                          onClick={handleAiReschedule}
+                          disabled={rescheduling}
+                          className="lp-btn-primary px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 disabled:opacity-50"
+                        >
+                          <Sparkles className={`w-3 h-3 ${rescheduling ? 'animate-spin' : ''}`} />
+                          <span>{rescheduling ? 'Optimizing...' : 'Reschedule with AI'}</span>
+                        </button>
+                      </div>
+                      
+                      <div className="space-y-2">
+                        {mockTasks.map((task) => (
+                          <div key={task.id} className="flex items-center gap-3 py-2.5 px-3 rounded-xl bg-white/[0.04] border border-white/[0.08] hover:bg-white/[0.08] transition-colors">
+                            <div className={`w-5 h-5 rounded flex items-center justify-center flex-shrink-0 ${task.done ? "bg-emerald-500" : "border-2 border-white/40"}`}>
+                              {task.done && <Check className="w-3 h-3 text-white" />}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className={`text-xs sm:text-sm font-semibold truncate ${task.done ? "text-slate-500 line-through" : "text-white"}`}>{task.t}</p>
+                              <div className="flex items-center gap-2 mt-0.5">
+                                <span className="text-slate-300 text-[10px] font-semibold">{task.d}</span>
+                                <span className="text-slate-400 text-[9px]">•</span>
+                                <span className="text-slate-300 text-[10px] font-semibold">{task.time}</span>
+                              </div>
+                            </div>
+                            <span className={`text-[10px] font-extrabold px-2 py-0.5 rounded-full flex-shrink-0 uppercase ${task.p === "high" ? "bg-red-500/20 text-red-300 border border-red-500/30" : task.p === "med" ? "bg-amber-500/20 text-amber-300 border border-amber-500/30" : "bg-slate-500/20 text-slate-300 border border-slate-500/30"}`}>
+                              {task.p}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Right: AI Assistant panel */}
+                    <div className="rounded-2xl p-4 bg-white/[0.04] border border-white/[0.08] flex flex-col justify-between">
+                      <div>
+                        <div className="flex items-center gap-2 mb-3">
+                          <div className="w-7 h-7 rounded-lg bg-violet-500/20 flex items-center justify-center border border-violet-500/30">
+                            <Brain className="w-4 h-4 text-violet-400" />
+                          </div>
+                          <div>
+                            <p className="text-white font-bold text-xs">AI Study Coach</p>
+                            <p className="text-emerald-400 text-[10px] flex items-center gap-1 font-semibold"><span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" /> Active</p>
+                          </div>
+                        </div>
+                        
+                        <div className="rounded-xl p-3 bg-violet-500/[0.08] border border-violet-500/30 mb-4 min-h-[120px] flex flex-col justify-center">
+                          <p className="text-xs text-violet-100 leading-relaxed italic font-medium">
+                            "{aiMessage}"
+                          </p>
                         </div>
                       </div>
-                    ))}
-                  </div>
-                  <div className="mt-4 pt-4 border-t" style={{ borderColor: "rgba(255,255,255,0.06)" }}>
-                    <div className="flex items-center gap-2">
-                      <Flame className="w-4 h-4 text-orange-400" />
-                      <span className="text-orange-400 text-sm font-semibold">14-day streak! 🔥</span>
+
+                      <div className="space-y-2 mt-auto">
+                        <div className="text-[10px] text-slate-400 font-bold tracking-wider uppercase">Auto-Suggestions</div>
+                        <div className="p-2.5 rounded-xl bg-white/[0.04] border border-white/[0.08] hover:bg-white/[0.08] transition-colors cursor-pointer text-[11px] text-slate-200 font-medium" onClick={handleAiReschedule}>
+                          ⚡ Physics exam date updated. Let's reschedule.
+                        </div>
+                        <div className="p-2.5 rounded-xl bg-white/[0.04] border border-white/[0.08] hover:bg-white/[0.08] transition-colors cursor-pointer text-[11px] text-slate-200 font-medium" onClick={() => setActiveTab('pomodoro')}>
+                          🍅 Set a 25-min Pomodoro for thermodynamics.
+                        </div>
+                      </div>
                     </div>
                   </div>
-                </div>
+                )}
+
+                {activeTab === 'pomodoro' && (
+                  <div className="flex flex-col md:flex-row items-center justify-center gap-10 animate-in fade-in duration-300 max-w-3xl mx-auto py-4">
+                    {/* Left: Circular Countdown Timer */}
+                    <div className="relative w-52 h-52 flex items-center justify-center flex-shrink-0">
+                      {/* Timer background SVG ring */}
+                      <svg className="absolute w-full h-full transform -rotate-90">
+                        <circle
+                          cx="104"
+                          cy="104"
+                          r="92"
+                          stroke="rgba(255,255,255,0.06)"
+                          strokeWidth="8"
+                          fill="transparent"
+                        />
+                        <motion.circle
+                          cx="104"
+                          cy="104"
+                          r="92"
+                          stroke="url(#timerGradient)"
+                          strokeWidth="8"
+                          fill="transparent"
+                          strokeDasharray={2 * Math.PI * 92}
+                          animate={{
+                            strokeDashoffset: (2 * Math.PI * 92) * (1 - timerSeconds / 1500)
+                          }}
+                          transition={{ duration: 1, ease: "linear" }}
+                        />
+                        <defs>
+                          <linearGradient id="timerGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                            <stop offset="0%" stopColor="#8b5cf6" />
+                            <stop offset="100%" stopColor="#ec4899" />
+                          </linearGradient>
+                        </defs>
+                      </svg>
+                      
+                      {/* Center Time Display */}
+                      <div className="text-center z-10">
+                        <div className="text-4xl font-black tracking-tight text-white lp-font-display">
+                          {formatTime(timerSeconds)}
+                        </div>
+                        <p className="text-[10px] font-bold text-pink-400 tracking-widest uppercase mt-1">Focus Session</p>
+                      </div>
+                    </div>
+
+                    {/* Right: Controls & Info */}
+                    <div className="space-y-4 text-center md:text-left flex-1">
+                      <div>
+                        <h4 className="text-xl font-bold text-white lp-font-display">Focus Sprint</h4>
+                        <p className="text-xs text-slate-300 mt-1 max-w-sm font-medium">Work in uninterrupted, intense blocks. Clicking the play/pause button below simulates the real timer.</p>
+                      </div>
+
+                      <div className="flex flex-wrap items-center justify-center md:justify-start gap-3">
+                        <button
+                          onClick={() => setTimerIsRunning(!timerIsRunning)}
+                          className="px-6 py-2.5 rounded-xl bg-gradient-to-r from-violet-500 to-pink-500 text-white font-bold text-sm hover:brightness-110 active:scale-95 transition-all flex items-center gap-2 cursor-pointer shadow-md shadow-pink-500/10 animate-pulse-ring"
+                        >
+                          {timerIsRunning ? (
+                            <>
+                              <div className="w-2.5 h-2.5 bg-white rounded-sm animate-pulse" />
+                              <span>Pause Timer</span>
+                            </>
+                          ) : (
+                            <>
+                              <Play className="w-3.5 h-3.5 text-white fill-white" />
+                              <span>Start Timer</span>
+                            </>
+                          )}
+                        </button>
+                        
+                        <button
+                          onClick={() => { setTimerIsRunning(false); setTimerSeconds(1500); }}
+                          className="px-4 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white text-xs font-semibold hover:bg-white/10 active:scale-95 transition-all cursor-pointer"
+                        >
+                          Reset
+                        </button>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-3 pt-2">
+                        <div className="p-3 rounded-xl bg-white/[0.04] border border-white/[0.08] text-center">
+                          <p className="text-[10px] text-slate-400 font-bold tracking-wider uppercase">Interval</p>
+                          <p className="text-sm font-black text-white mt-1">25 min</p>
+                        </div>
+                        <div className="p-3 rounded-xl bg-white/[0.04] border border-white/[0.08] text-center">
+                          <p className="text-[10px] text-slate-400 font-bold tracking-wider uppercase">Break</p>
+                          <p className="text-sm font-black text-white mt-1">5 min</p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {activeTab === 'analytics' && (
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6 animate-in fade-in duration-300">
+                    {/* Charts */}
+                    <div className="md:col-span-2 rounded-2xl p-4 bg-white/[0.04] border border-white/[0.08]">
+                      <div className="flex items-center justify-between mb-4">
+                        <div>
+                          <span className="text-white font-bold text-sm block">Study Distribution</span>
+                          <span className="text-slate-350 text-xs font-semibold">Minutes logged per subject</span>
+                        </div>
+                        <span className="text-emerald-400 text-xs font-bold">+18% vs last week</span>
+                      </div>
+
+                      {/* Mock Chart using CSS and Flex */}
+                      <div className="h-44 flex items-end gap-3 sm:gap-6 pt-4 pb-2 px-2">
+                        {[
+                          { label: "Mon", val: 75, color: "bg-violet-500" },
+                          { label: "Tue", val: 95, color: "bg-indigo-500" },
+                          { label: "Wed", val: 55, color: "bg-cyan-500" },
+                          { label: "Thu", val: 120, color: "bg-pink-500" },
+                          { label: "Fri", val: 80, color: "bg-rose-500" },
+                          { label: "Sat", val: 40, color: "bg-emerald-500" },
+                          { label: "Sun", val: 65, color: "bg-amber-500" },
+                        ].map((bar, i) => (
+                          <div key={i} className="flex-1 flex flex-col items-center gap-2 h-full justify-end group">
+                            <div className="text-[9px] text-slate-300 opacity-0 group-hover:opacity-100 transition-opacity duration-200 font-bold">{bar.val}m</div>
+                            <motion.div
+                              initial={{ height: 0 }}
+                              animate={{ height: `${(bar.val / 120) * 100}%` }}
+                              transition={{ delay: i * 0.05, duration: 0.8, ease: "easeOut" }}
+                              className={`w-full rounded-t-lg ${bar.color} hover:brightness-115 transition-all shadow-lg`}
+                            />
+                            <span className="text-[10px] text-slate-300 font-semibold">{bar.label}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Streak & Achievements stats */}
+                    <div className="space-y-4">
+                      {/* Daily streak */}
+                      <div className="rounded-2xl p-4 bg-white/[0.04] border border-white/[0.08] flex items-center justify-between">
+                        <div>
+                          <p className="text-[10px] text-slate-400 font-bold tracking-wider uppercase">Active Streak</p>
+                          <p className="text-xl font-black text-orange-400 lp-font-display mt-1">14 Days 🔥</p>
+                          <p className="text-[10px] text-slate-300 font-semibold mt-0.5">Top 5% of students this week</p>
+                        </div>
+                        <div className="w-10 h-10 rounded-full bg-orange-500/10 flex items-center justify-center border border-orange-500/20">
+                          <Flame className="w-5 h-5 text-orange-400" />
+                        </div>
+                      </div>
+
+                      {/* Productivity score */}
+                      <div className="rounded-2xl p-4 bg-white/[0.04] border border-white/[0.08]">
+                        <div className="flex justify-between items-center mb-2">
+                          <p className="text-[10px] text-slate-400 font-bold tracking-wider uppercase">Weekly Target</p>
+                          <span className="text-xs text-white font-extrabold">85% Complete</span>
+                        </div>
+                        <div className="h-2 rounded-full bg-white/10 overflow-hidden">
+                          <div className="h-full rounded-full bg-gradient-to-r from-violet-500 to-indigo-500" style={{ width: "85%" }} />
+                        </div>
+                        <p className="text-[10px] text-slate-300 font-medium mt-2">Awesome! You logged 18 focus hours this week.</p>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
 
@@ -687,6 +971,65 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onGetStarted }) => {
             </div>
           </motion.div>
         </motion.div>
+      </section>
+
+      {/* ─── GLASSMORPHISM FEATURE CARDS ────────────────────────────────────────── */}
+      <section className="relative z-10 py-12 px-4 max-w-7xl mx-auto -mt-10 mb-12">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          {/* Card 1: AI Study Assistant */}
+          <motion.div
+            initial={{ opacity: 0, y: 30 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.6 }}
+            className="rounded-3xl p-8 relative overflow-hidden backdrop-blur-xl bg-white/[0.02] border border-white/10 hover:border-violet-500/30 transition-all duration-300 group shadow-lg shadow-black/30"
+          >
+            <div className="absolute -right-10 -top-10 w-32 h-32 rounded-full bg-violet-500/10 blur-2xl group-hover:bg-violet-500/20 transition-all duration-500" />
+            <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-violet-400 to-indigo-600 flex items-center justify-center mb-6">
+              <Brain className="w-6 h-6 text-white" />
+            </div>
+            <h3 className="text-xl font-bold text-white mb-3 lp-font-display">AI Study Assistant</h3>
+            <p className="text-slate-300 text-sm leading-relaxed">
+              Generate custom practice quizzes from your study files, get instant lecture summaries, and adaptive explanation guides custom-tailored to your learning speed.
+            </p>
+          </motion.div>
+
+          {/* Card 2: Smart Task Planner */}
+          <motion.div
+            initial={{ opacity: 0, y: 30 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.6, delay: 0.15 }}
+            className="rounded-3xl p-8 relative overflow-hidden backdrop-blur-xl bg-white/[0.02] border border-white/10 hover:border-cyan-500/30 transition-all duration-300 group shadow-lg shadow-black/30"
+          >
+            <div className="absolute -right-10 -top-10 w-32 h-32 rounded-full bg-cyan-500/10 blur-2xl group-hover:bg-cyan-500/20 transition-all duration-500" />
+            <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-cyan-400 to-blue-600 flex items-center justify-center mb-6">
+              <CheckSquare className="w-6 h-6 text-white" />
+            </div>
+            <h3 className="text-xl font-bold text-white mb-3 lp-font-display">Smart Task Planner</h3>
+            <p className="text-slate-300 text-sm leading-relaxed">
+              Never stress about prioritizing. Our intelligent algorithm auto-orders your assignments based on weightage, difficulty, and upcoming deadlines in real-time.
+            </p>
+          </motion.div>
+
+          {/* Card 3: Focus Mode + Analytics */}
+          <motion.div
+            initial={{ opacity: 0, y: 30 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.6, delay: 0.3 }}
+            className="rounded-3xl p-8 relative overflow-hidden backdrop-blur-xl bg-white/[0.02] border border-white/10 hover:border-rose-500/30 transition-all duration-300 group shadow-lg shadow-black/30"
+          >
+            <div className="absolute -right-10 -top-10 w-32 h-32 rounded-full bg-rose-500/10 blur-2xl group-hover:bg-rose-500/20 transition-all duration-500" />
+            <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-pink-400 to-rose-600 flex items-center justify-center mb-6">
+              <Timer className="w-6 h-6 text-white" />
+            </div>
+            <h3 className="text-xl font-bold text-white mb-3 lp-font-display">Focus Mode + Analytics</h3>
+            <p className="text-slate-300 text-sm leading-relaxed">
+              Block distractions with the Pomodoro timer while collecting granular focus data. Gain deep insights into your study habits, streaks, and subject completion trends.
+            </p>
+          </motion.div>
+        </div>
       </section>
 
       {/* ─── MARQUEE / LOGOS ─────────────────────────────────────────────────── */}
