@@ -1,0 +1,13 @@
+# AI-Powered Study Planner - Robots.txt
+# https://studyplanner.thanusan.dev/
+
+User-agent: *
+Allow: /
+Disallow: /api/
+Disallow: /auth/
+
+# Sitemaps
+Sitemap: https://studyplanner.thanusan.dev/sitemap.xml
+
+# Crawl-delay (optional, polite crawling)
+Crawl-delay: 1

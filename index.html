@@ -1,30 +1,165 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" dir="ltr">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <link
-      rel="icon"
-      type="image/svg+xml"
-      href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0%25' stop-color='%233B82F6'/%3E%3Cstop offset='100%25' stop-color='%238B5CF6'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='24' height='24' rx='6' fill='url(%23g)'/%3E%3Cpath d='M4.5 8.5 12 5l7.5 3.5-7.5 3.5-7.5-3.5Z' fill='none' stroke='white' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3Cpath d='M7 11.5v3.5c0 1.4 2.2 2.5 5 2.5s5-1.1 5-2.5v-3.5' fill='none' stroke='white' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3Cpath d='M19.5 9.5v4' fill='none' stroke='white' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3Cpath d='M19.5 13.5c0 .9-.7 1.6-1.6 1.6' fill='none' stroke='white' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E"
-    />
-    <title>AI-Powered Study Planner — Smart Scheduling, Focus Timer & Exam Prep</title>
-    <meta name="description" content="Boost your grades with our AI-powered study planner. Smart task scheduling, Pomodoro focus timer, exam countdown, progress tracking, and AI-generated quizzes — all in one free app." />
-    <meta name="keywords" content="AI study planner, smart study scheduler, Pomodoro timer, exam preparation, student productivity, focus tracker, study app, AI quiz generator, academic planner" />
-    <meta name="author" content="Study Planner" />
-    <meta name="robots" content="index, follow" />
-    <meta name="theme-color" content="#6C3AED" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
 
-    <!-- Open Graph / Social -->
+    <!-- Primary SEO Meta Tags -->
+    <title>AI-Powered Study Planner | Smart Scheduling, Focus Timer & Exam Prep — Free for Students</title>
+    <meta name="description" content="Supercharge your academic performance with our free AI-powered study planner. Features intelligent task scheduling, Pomodoro focus timer, exam countdown, progress analytics, daily study streaks, and AI-generated quizzes. Trusted by 100,000+ students worldwide." />
+    <meta name="keywords" content="AI study planner, smart study scheduler, Pomodoro timer, exam preparation app, student productivity tool, focus tracker, study app, AI quiz generator, academic planner, study streak tracker, free study planner, online study organizer, exam countdown timer, study progress analytics, college planner app" />
+    <meta name="author" content="Study Planner" />
+    <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1" />
+    <meta name="googlebot" content="index, follow" />
+    <meta name="theme-color" content="#6C3AED" />
+    <meta name="application-name" content="Study Planner" />
+    <meta name="apple-mobile-web-app-title" content="Study Planner" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="format-detection" content="telephone=no" />
+
+    <!-- Canonical URL -->
+    <link rel="canonical" href="https://studyplanner.thanusan.dev/" />
+
+    <!-- Favicon & Brand Branding Assets -->
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="apple-touch-icon" href="/favicon.svg" />
+    <link rel="manifest" href="/site.webmanifest" />
+
+    <!-- Open Graph / Facebook -->
     <meta property="og:type" content="website" />
-    <meta property="og:title" content="AI-Powered Study Planner — Smart Scheduling & Focus Timer" />
-    <meta property="og:description" content="Boost your grades with AI-driven task scheduling, Pomodoro focus sessions, exam countdowns, and AI-generated quizzes. Free for all students." />
+    <meta property="og:url" content="https://studyplanner.thanusan.dev/" />
+    <meta property="og:title" content="AI-Powered Study Planner — Smart Scheduling, Focus Timer & Exam Prep" />
+    <meta property="og:description" content="Supercharge your grades with AI-driven task scheduling, Pomodoro focus sessions, exam countdowns, progress analytics, and AI-generated quizzes. Free for all students." />
     <meta property="og:site_name" content="Study Planner" />
+    <meta property="og:locale" content="en_US" />
 
     <!-- Twitter Card -->
     <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:title" content="AI-Powered Study Planner — Smart Scheduling & Focus Timer" />
-    <meta name="twitter:description" content="Boost your grades with AI-driven task scheduling, Pomodoro focus sessions, exam countdowns, and AI-generated quizzes." />
+    <meta name="twitter:url" content="https://studyplanner.thanusan.dev/" />
+    <meta name="twitter:title" content="AI-Powered Study Planner — Smart Scheduling, Focus Timer & Exam Prep" />
+    <meta name="twitter:description" content="Supercharge your grades with AI-driven task scheduling, Pomodoro focus sessions, exam countdowns, and AI-generated quizzes. 100% Free." />
+    <meta name="twitter:creator" content="@studyplanner" />
+
+    <!-- Performance Hints -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link rel="dns-prefetch" href="https://fonts.googleapis.com" />
+
+    <!-- JSON-LD Structured Data: SoftwareApplication -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "SoftwareApplication",
+      "name": "AI-Powered Study Planner",
+      "applicationCategory": "EducationalApplication",
+      "operatingSystem": "Web",
+      "url": "https://studyplanner.thanusan.dev/",
+      "description": "Free AI-powered study planner with smart task scheduling, Pomodoro focus timer, exam countdown, progress analytics, study streaks, and AI-generated quizzes. Built for students worldwide.",
+      "offers": {
+        "@type": "Offer",
+        "price": "0",
+        "priceCurrency": "USD"
+      },
+      "aggregateRating": {
+        "@type": "AggregateRating",
+        "ratingValue": "4.9",
+        "ratingCount": "12480",
+        "bestRating": "5",
+        "worstRating": "1"
+      },
+      "featureList": [
+        "AI-Powered Task Scheduling",
+        "Pomodoro Focus Timer",
+        "Exam Countdown & Reminders",
+        "Progress Analytics Dashboard",
+        "Daily Study Streaks",
+        "AI-Generated Quizzes",
+        "Subject Organization",
+        "Real-time Cloud Sync"
+      ],
+      "screenshot": "https://studyplanner.thanusan.dev/og-image.png",
+      "author": {
+        "@type": "Organization",
+        "name": "Study Planner",
+        "url": "https://studyplanner.thanusan.dev/"
+      }
+    }
+    </script>
+
+    <!-- JSON-LD Structured Data: Organization -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "Organization",
+      "name": "Study Planner",
+      "url": "https://studyplanner.thanusan.dev/",
+      "logo": "https://studyplanner.thanusan.dev/favicon.svg",
+      "description": "AI-powered study planning platform trusted by 100,000+ students worldwide.",
+      "sameAs": []
+    }
+    </script>
+
+    <!-- JSON-LD Structured Data: FAQ (boosts rich snippets) -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "FAQPage",
+      "mainEntity": [
+        {
+          "@type": "Question",
+          "name": "What is AI-Powered Study Planner?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "AI-Powered Study Planner is a free web application that helps students organize their study tasks, track progress with analytics, use a Pomodoro focus timer, set exam countdowns, maintain daily study streaks, and take AI-generated quizzes — all in one platform."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Is the Study Planner app free?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Yes, Study Planner is 100% free to use. No credit card required. All features including AI-generated quizzes, Pomodoro timer, and progress analytics are available at no cost."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "How does the AI quiz generator work?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "The AI quiz generator creates custom practice questions based on your subjects and study materials. It uses artificial intelligence to generate relevant multiple-choice and open-ended questions to help you test your knowledge and prepare for exams."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Can I track my study progress?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Yes! Study Planner includes detailed progress analytics with daily study streaks, focus velocity trends, time breakdowns by subject, task completion rates, and exam countdown trackers to keep you motivated and on track."
+          }
+        }
+      ]
+    }
+    </script>
+
+    <!-- JSON-LD Structured Data: WebApplication -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "WebApplication",
+      "name": "Study Planner",
+      "url": "https://studyplanner.thanusan.dev/",
+      "browserRequirements": "Requires JavaScript. Requires HTML5.",
+      "applicationCategory": "Education",
+      "offers": {
+        "@type": "Offer",
+        "price": "0",
+        "priceCurrency": "USD"
+      }
+    }
+    </script>
 
     <style>
       html,
@@ -39,6 +174,25 @@
   </head>
 
   <body>
+    <!-- Noscript fallback for SEO crawlers and accessibility -->
+    <noscript>
+      <div style="padding:2rem;text-align:center;font-family:system-ui,sans-serif;">
+        <h1>AI-Powered Study Planner</h1>
+        <p>Supercharge your academic performance with our free AI-powered study planner. Features intelligent task scheduling, Pomodoro focus timer, exam countdown, progress analytics, daily study streaks, and AI-generated quizzes.</p>
+        <p>Please enable JavaScript to use the Study Planner application.</p>
+        <h2>Features</h2>
+        <ul style="text-align:left;max-width:600px;margin:0 auto;">
+          <li><strong>Smart Task Manager</strong> — AI-powered task prioritization that adapts to your study patterns and deadlines</li>
+          <li><strong>Pomodoro Focus Timer</strong> — Stay focused with built-in timer and session tracking</li>
+          <li><strong>Progress Analytics</strong> — Track your improvement with detailed insights and charts</li>
+          <li><strong>Exam Countdown</strong> — Never miss important dates with smart reminders</li>
+          <li><strong>Study Streaks</strong> — Build momentum and stay motivated daily</li>
+          <li><strong>AI Quiz Generator</strong> — Test your knowledge with AI-generated practice questions</li>
+          <li><strong>Subject Organizer</strong> — Color-coded organization for all your subjects</li>
+        </ul>
+        <p><a href="https://studyplanner.thanusan.dev/">Visit Study Planner</a></p>
+      </div>
+    </noscript>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>

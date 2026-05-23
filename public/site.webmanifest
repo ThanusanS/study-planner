@@ -1,0 +1,16 @@
+{
+  "name": "Study Planner AI",
+  "short_name": "StudyPlanner",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ],
+  "theme_color": "#6C3AED",
+  "background_color": "#050510",
+  "display": "standalone",
+  "start_url": "/"
+}

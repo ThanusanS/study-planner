@@ -22,6 +22,8 @@ import {
   ChevronRight,
   TrendingUp,
 } from "lucide-react";
+import { LogoIcon } from "./branding/LogoIcon";
+import { LogoFull } from "./branding/LogoFull";
 
 interface AuthProps {
   onBackToHome?: () => void;
@@ -280,13 +282,8 @@ export const Auth: React.FC<AuthProps> = ({ onBackToHome }) => {
         </div>
 
         {/* App Title Section */}
-        <div className="flex items-center gap-3 relative z-10">
-          <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-indigo-500 to-purple-600 flex items-center justify-center shadow-lg shadow-indigo-500/20">
-            <GraduationCap className="w-5 h-5 text-white" />
-          </div>
-          <span className="font-extrabold text-lg tracking-tight bg-gradient-to-r from-indigo-400 to-purple-400 bg-clip-text text-transparent">
-            Study Planner
-          </span>
+        <div className="relative z-10">
+          <LogoFull animated={true} showAI={true} iconSize="w-9 h-9" />
         </div>
 
         {/* Animated Carousel Slides */}
@@ -363,9 +360,7 @@ export const Auth: React.FC<AuthProps> = ({ onBackToHome }) => {
               {/* Header inside the form card */}
               <div className="text-center space-y-2 mb-6">
                 <div className="flex justify-center mb-4 lg:hidden">
-                  <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center shadow-md">
-                    <GraduationCap className="w-8 h-8 text-white" />
-                  </div>
+                  <LogoIcon className="w-12 h-12" animated={true} />
                 </div>
                 <h1 className="text-2xl font-extrabold text-white tracking-tight">
                   {activeTab === "login" ? "Welcome Back" : "Create Your Account"}
