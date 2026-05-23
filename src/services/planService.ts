@@ -1,6 +1,11 @@
 import { jsPDF } from "jspdf";
+import { ID, Query } from "appwrite";
+import { databases, appwriteConfig } from "../lib/appwrite";
+
+const { databaseId } = appwriteConfig;
 
 export interface UserPlan {
+  $id?: string;
   userId: string;
   plan: "free" | "pro" | "premium";
   status: "active" | "trial" | "cancelled" | "expired" | "past_due";
@@ -34,34 +39,55 @@ const PLAN_LIMITS = {
 };
 
 class PlanService {
-  private getStorageKey(userId: string, type: "plan" | "logs" | "invoices"): string {
-    return `study_planner_${type}_${userId}`;
-  }
-
-  // ========== GET USER PLAN (DB BACKED WITH FALLBACK) ==========
+  // ========== GET USER PLAN (DB BACKED) ==========
   async getUserPlan(userId: string): Promise<UserPlan> {
     try {
-      const key = this.getStorageKey(userId, "plan");
-      const stored = localStorage.getItem(key);
+      const response = await databases.listDocuments(
+        databaseId,
+        appwriteConfig.userPlansCollectionId,
+        [Query.equal("userId", userId)]
+      );
 
-      if (stored) {
-        const planData = JSON.parse(stored) as UserPlan;
+      if (response.documents.length > 0) {
+        const planDoc = response.documents[0] as any;
+        const planData: UserPlan = {
+          $id: planDoc.$id,
+          userId: planDoc.userId,
+          plan: planDoc.plan,
+          status: planDoc.status,
+          aiCredits: planDoc.aiCredits,
+          maxCredits: planDoc.maxCredits,
+          renewalDate: planDoc.renewalDate,
+          billingCycle: planDoc.billingCycle,
+        };
         // Run monthly reset check
         return await this.checkAndResetCredits(planData);
       }
 
       // Default Free Plan Initialization
-      const newPlan: UserPlan = {
+      const newPlanData = {
         userId,
-        plan: "free",
-        status: "active",
+        plan: "free" as const,
+        status: "active" as const,
         aiCredits: PLAN_LIMITS.free.maxCredits,
         maxCredits: PLAN_LIMITS.free.maxCredits,
         renewalDate: this.calculateNextRenewalDate(new Date(), "monthly"),
-        billingCycle: "monthly",
+        billingCycle: "monthly" as const,
       };
 
-      this.savePlanState(userId, newPlan);
+      const createdDoc = await databases.createDocument(
+        databaseId,
+        appwriteConfig.userPlansCollectionId,
+        ID.unique(),
+        newPlanData
+      );
+
+      const newPlan: UserPlan = {
+        $id: createdDoc.$id,
+        ...newPlanData
+      };
+
+      window.dispatchEvent(new CustomEvent("studyPlanChanged", { detail: newPlan }));
       return newPlan;
     } catch (error) {
       console.error("Error fetching user plan:", error);
@@ -88,7 +114,7 @@ class PlanService {
 
     // Deduct
     plan.aiCredits = Math.max(0, plan.aiCredits - credits);
-    this.savePlanState(userId, plan);
+    await this.savePlanState(plan);
 
     // Write to Usage Log Ledger
     await this.logUsage(userId, actionType, credits);
@@ -112,7 +138,7 @@ class PlanService {
     plan.billingCycle = cycle;
     plan.renewalDate = this.calculateNextRenewalDate(new Date(), cycle);
 
-    this.savePlanState(userId, plan);
+    await this.savePlanState(plan);
 
     // Create Invoice Billing Receipt
     const amount = targetPlan === "pro" 
@@ -124,7 +150,7 @@ class PlanService {
     return plan;
   }
 
-  // ========== DOWNGRADE TO FREE (Downgrade protection - keeps data safe) ==========
+  // ========== DOWNGRADE TO FREE ==========
   async downgradeToFree(userId: string): Promise<UserPlan> {
     const plan = await this.getUserPlan(userId);
     plan.plan = "free";
@@ -134,7 +160,27 @@ class PlanService {
     plan.billingCycle = "monthly";
     plan.renewalDate = this.calculateNextRenewalDate(new Date(), "monthly");
 
-    this.savePlanState(userId, plan);
+    await this.savePlanState(plan);
+    return plan;
+  }
+
+  // ========== ACTIVE PRO TRIAL ==========
+  async activateTrial(userId: string): Promise<UserPlan> {
+    const plan = await this.getUserPlan(userId);
+    const limits = PLAN_LIMITS.pro;
+
+    plan.plan = "pro";
+    plan.status = "trial";
+    plan.maxCredits = limits.maxCredits;
+    plan.aiCredits = limits.maxCredits;
+    plan.billingCycle = "monthly";
+    plan.renewalDate = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(); // 7 days trial
+
+    await this.savePlanState(plan);
+
+    // Log the trial activation
+    await this.logUsage(userId, "7-Day Scholar Pro Trial Activated", 0);
+
     return plan;
   }
 
@@ -149,7 +195,7 @@ class PlanService {
       plan.aiCredits = limits.maxCredits;
       // Set next renewal
       plan.renewalDate = this.calculateNextRenewalDate(now, plan.billingCycle);
-      this.savePlanState(plan.userId, plan);
+      await this.savePlanState(plan);
 
       // Log the reset
       await this.logUsage(plan.userId, "Monthly Credit Allowance Reset", 0);
@@ -160,54 +206,100 @@ class PlanService {
 
   // ========== USAGE LOG LEDGER ==========
   async getUsageLogs(userId: string): Promise<UsageLog[]> {
-    const key = this.getStorageKey(userId, "logs");
-    const stored = localStorage.getItem(key);
-    return stored ? JSON.parse(stored) : [];
+    try {
+      const response = await databases.listDocuments(
+        databaseId,
+        appwriteConfig.usageLogsCollectionId,
+        [
+          Query.equal("userId", userId),
+          Query.orderDesc("timestamp"),
+          Query.limit(100)
+        ]
+      );
+
+      return response.documents.map((doc: any) => ({
+        id: doc.$id,
+        userId: doc.userId,
+        actionType: doc.actionType,
+        creditsUsed: doc.creditsUsed,
+        timestamp: doc.timestamp,
+      }));
+    } catch (error) {
+      console.error("Error fetching usage logs:", error);
+      return [];
+    }
   }
 
   private async logUsage(userId: string, actionType: string, creditsUsed: number): Promise<void> {
-    const logs = await this.getUsageLogs(userId);
-    const newLog: UsageLog = {
-      id: `TXN-${Math.random().toString(36).substr(2, 9).toUpperCase()}`,
-      userId,
-      actionType,
-      creditsUsed,
-      timestamp: new Date().toISOString(),
-    };
-
-    logs.unshift(newLog); // Put new items first
-    localStorage.setItem(this.getStorageKey(userId, "logs"), JSON.stringify(logs.slice(0, 100))); // Cap at 100 logs
+    try {
+      await databases.createDocument(
+        databaseId,
+        appwriteConfig.usageLogsCollectionId,
+        ID.unique(),
+        {
+          userId,
+          actionType,
+          creditsUsed,
+          timestamp: new Date().toISOString(),
+        }
+      );
+    } catch (error) {
+      console.error("Error writing usage log:", error);
+    }
   }
 
   // ========== BILLING HISTORY & RECEIPT GENERATOR ==========
   async getInvoices(userId: string): Promise<Invoice[]> {
-    const key = this.getStorageKey(userId, "invoices");
-    const stored = localStorage.getItem(key);
-    return stored ? JSON.parse(stored) : [];
+    try {
+      const response = await databases.listDocuments(
+        databaseId,
+        appwriteConfig.billingHistoryCollectionId,
+        [
+          Query.equal("userId", userId),
+          Query.orderDesc("date")
+        ]
+      );
+
+      return response.documents.map((doc: any) => ({
+        invoiceId: doc.invoiceId,
+        userId: doc.userId,
+        date: doc.date,
+        amount: doc.amount,
+        planName: doc.planName,
+        cycle: doc.cycle,
+      }));
+    } catch (error) {
+      console.error("Error fetching billing history:", error);
+      return [];
+    }
   }
 
   private async createInvoice(userId: string, amount: string, planName: string, cycle: string): Promise<void> {
-    const invoices = await this.getInvoices(userId);
-    const newInvoice: Invoice = {
-      invoiceId: `INV-${Math.floor(100000 + Math.random() * 900000)}`,
-      userId,
-      date: new Date().toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" }),
-      amount,
-      planName,
-      cycle,
-    };
-
-    invoices.unshift(newInvoice);
-    localStorage.setItem(this.getStorageKey(userId, "invoices"), JSON.stringify(invoices));
+    try {
+      await databases.createDocument(
+        databaseId,
+        appwriteConfig.billingHistoryCollectionId,
+        ID.unique(),
+        {
+          invoiceId: `INV-${Math.floor(100000 + Math.random() * 900000)}`,
+          userId,
+          date: new Date().toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" }),
+          amount,
+          planName,
+          cycle,
+        }
+      );
+    } catch (error) {
+      console.error("Error creating billing invoice:", error);
+    }
   }
 
-  // ========== PDF RECEIPT GENERATOR (Professional UX receipt download) ==========
+  // ========== PDF RECEIPT GENERATOR ==========
   async downloadInvoicePDF(invoice: Invoice, userName: string, userEmail: string): Promise<void> {
     try {
       const doc = new jsPDF({ unit: "mm", format: "a4" });
       
       // Receipt Styling
-      // Theme colors
       const purple = { r: 99, g: 102, b: 241 };
       const dark = { r: 17, g: 24, b: 39 };
       const gray = { r: 107, g: 114, b: 128 };
@@ -325,10 +417,62 @@ class PlanService {
     return date.toISOString();
   }
 
-  private savePlanState(userId: string, plan: UserPlan): void {
-    localStorage.setItem(this.getStorageKey(userId, "plan"), JSON.stringify(plan));
-    // Trigger plan changes custom event for real-time reactivity in UI components
-    window.dispatchEvent(new CustomEvent("studyPlanChanged", { detail: plan }));
+  private async savePlanState(plan: UserPlan): Promise<void> {
+    try {
+      if (plan.$id) {
+        const { $id, ...updateData } = plan;
+        await databases.updateDocument(
+          databaseId,
+          appwriteConfig.userPlansCollectionId,
+          $id,
+          updateData
+        );
+      } else {
+        const response = await databases.listDocuments(
+          databaseId,
+          appwriteConfig.userPlansCollectionId,
+          [Query.equal("userId", plan.userId)]
+        );
+        if (response.documents.length > 0) {
+          const docId = response.documents[0].$id;
+          const updateData = {
+            plan: plan.plan,
+            status: plan.status,
+            aiCredits: plan.aiCredits,
+            maxCredits: plan.maxCredits,
+            renewalDate: plan.renewalDate,
+            billingCycle: plan.billingCycle,
+          };
+          await databases.updateDocument(
+            databaseId,
+            appwriteConfig.userPlansCollectionId,
+            docId,
+            updateData
+          );
+          plan.$id = docId;
+        } else {
+          const createdDoc = await databases.createDocument(
+            databaseId,
+            appwriteConfig.userPlansCollectionId,
+            ID.unique(),
+            {
+              userId: plan.userId,
+              plan: plan.plan,
+              status: plan.status,
+              aiCredits: plan.aiCredits,
+              maxCredits: plan.maxCredits,
+              renewalDate: plan.renewalDate,
+              billingCycle: plan.billingCycle,
+            }
+          );
+          plan.$id = createdDoc.$id;
+        }
+      }
+      // Trigger plan changes custom event for real-time reactivity in UI components
+      window.dispatchEvent(new CustomEvent("studyPlanChanged", { detail: plan }));
+    } catch (error) {
+      console.error("Error saving plan state to Appwrite:", error);
+    }
   }
 }
 

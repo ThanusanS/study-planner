@@ -147,19 +147,9 @@ export const Billing: React.FC = () => {
 
   const triggerFreeTrial = async () => {
     try {
-      const limits = { maxCredits: 500 };
-      const trialPlan: UserPlan = {
-        userId,
-        plan: "pro",
-        status: "trial",
-        maxCredits: limits.maxCredits,
-        aiCredits: limits.maxCredits,
-        billingCycle: "monthly",
-        renewalDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(), // 7 days trial
-      };
-      
-      localStorage.setItem(`study_planner_plan_${userId}`, JSON.stringify(trialPlan));
-      window.dispatchEvent(new CustomEvent("studyPlanChanged", { detail: trialPlan }));
+      toast.info("Activating 7-Day Scholar Pro Trial...");
+      const trialPlan = await planService.activateTrial(userId);
+      setPlan(trialPlan);
       toast.success("🚀 Active: 7-Day Scholar Pro Trial Activated! No credit card required.");
     } catch (err) {
       toast.error("Failed to start free trial");
