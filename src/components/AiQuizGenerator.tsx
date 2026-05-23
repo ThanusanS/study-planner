@@ -42,12 +42,14 @@ import {
 } from "lucide-react";
 import { evaluateQuiz, generateQuiz } from "../services/aiQuizService";
 import databaseService, { QuizHistory } from "../services/databaseService";
+import planService, { UserPlan } from "../services/planService";
 import { useAuth } from "../contexts/AuthContext";
 import { toast } from "sonner";
 import jsPDF from "jspdf";
 
 export const AiQuizGenerator: React.FC = () => {
   const { user } = useAuth();
+  const [activePlan, setActivePlan] = useState<UserPlan | null>(null);
 
   const [mode, setMode] = useState("generate");
   const [topic, setTopic] = useState("");
@@ -75,18 +77,30 @@ export const AiQuizGenerator: React.FC = () => {
     useState<QuizHistory | null>(null);
   const [deleteLoading, setDeleteLoading] = useState(false);
 
-  // Load quizzes on component mount
+  // Load quizzes and active plan on component mount
   useEffect(() => {
-    if (user?.id) {
+    const resolvedUserId = user?.$id || (user as any)?.id || user?.id;
+    if (resolvedUserId) {
       loadQuizzes();
+      planService.getUserPlan(resolvedUserId).then(setActivePlan);
     }
-  }, [user?.id]);
+
+    const handlePlanChange = (e: any) => {
+      setActivePlan(e.detail);
+    };
+
+    window.addEventListener("studyPlanChanged", handlePlanChange);
+    return () => {
+      window.removeEventListener("studyPlanChanged", handlePlanChange);
+    };
+  }, [user]);
 
   const loadQuizzes = async () => {
-    if (!user?.id) return;
+    const resolvedUserId = user?.$id || (user as any)?.id || user?.id;
+    if (!resolvedUserId) return;
     setQuizzesLoading(true);
     try {
-      const userQuizzes = await databaseService.getQuizzes(user.id);
+      const userQuizzes = await databaseService.getQuizzes(resolvedUserId);
       setQuizzes(userQuizzes);
     } catch (err) {
       console.error("Failed to load quiz history:", err);
@@ -251,6 +265,15 @@ export const AiQuizGenerator: React.FC = () => {
       return;
     }
 
+    const resolvedUserId = user?.$id || (user as any)?.id || user?.id || "test-user";
+    const userPlan = await planService.getUserPlan(resolvedUserId);
+    
+    if (userPlan.aiCredits < 2) {
+      setError("Insufficient AI Credits. Generating an AI Quiz requires 2 credits. Please navigate to 'Billing & Plans' in the sidebar to upgrade or refill your credits.");
+      toast.error("Insufficient AI Credits!");
+      return;
+    }
+
     setLoading(true);
     try {
       const output = await generateQuiz({
@@ -262,14 +285,19 @@ export const AiQuizGenerator: React.FC = () => {
       const quizOutput = output || "No response returned from the model.";
       setResult(quizOutput);
 
-      // Auto-save quiz to history after generation
-      if (user?.id && quizOutput !== "No response returned from the model.") {
-        try {
-          await saveQuiz(quizOutput);
-          toast.success("Quiz generated and saved to history!");
-        } catch {
-          // Silently fail auto-save — user can still save manually
-          console.warn("Auto-save failed, quiz can be saved manually.");
+      // Deduct credits on successful generation
+      if (quizOutput !== "No response returned from the model.") {
+        await planService.deductCredits(resolvedUserId, `AI Quiz - Topic: ${topic.trim()}`, 2);
+        
+        // Auto-save quiz to history after generation
+        if (user?.id || (user as any)?.$id) {
+          try {
+            await saveQuiz(quizOutput);
+            toast.success("Quiz generated and saved to history! (2 AI Credits deducted)");
+          } catch {
+            // Silently fail auto-save — user can still save manually
+            console.warn("Auto-save failed, quiz can be saved manually.");
+          }
         }
       }
     } catch (err) {
@@ -618,6 +646,9 @@ export const AiQuizGenerator: React.FC = () => {
             </span>
             <span className="inline-flex items-center gap-1.5 rounded-full border border-border/70 bg-background/60 px-2 py-0.5 sm:px-3 sm:py-1">
               Detailed scoring
+            </span>
+            <span className="inline-flex items-center gap-1.5 rounded-full border border-indigo-500/20 bg-indigo-500/5 text-indigo-600 dark:text-indigo-400 font-bold px-2 py-0.5 sm:px-3 sm:py-1">
+              ⚡ {activePlan !== null ? `${activePlan.aiCredits} AI Credits` : "AI Credits Balance"}
             </span>
           </div>
         </CardHeader>

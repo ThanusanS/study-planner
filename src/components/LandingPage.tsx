@@ -124,6 +124,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onGetStarted }) => {
   const [timerIsRunning, setTimerIsRunning] = useState(false);
   const [rescheduling, setRescheduling] = useState(false);
   const [aiMessage, setAiMessage] = useState("Hi! I'm your AI Study Assistant. Click 'Reschedule with AI' to optimize your day.");
+  const [billingCycle, setBillingCycle] = useState<'monthly' | 'yearly'>('monthly');
   
   // Custom mock task list
   const [mockTasks, setMockTasks] = useState([
@@ -1309,37 +1310,70 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onGetStarted }) => {
             <h2 className="text-3xl sm:text-5xl font-black text-white mb-6 lp-font-display">
               Simple, transparent pricing
             </h2>
-            <p className="text-slate-400 text-base sm:text-lg">No subscriptions. No hidden fees. Free for everyone, forever.</p>
+            <p className="text-slate-400 text-base sm:text-lg">Choose the perfect volume plan to supercharge your academic workflows.</p>
           </motion.div>
+
+          {/* Monthly / Yearly cycle selector */}
+          <div className="flex justify-center mb-6">
+            <div className="inline-flex p-1 rounded-2xl bg-white/5 border border-white/10">
+              <button
+                onClick={() => setBillingCycle("monthly")}
+                className={`px-5 py-2 rounded-xl text-xs font-bold transition-all ${billingCycle === "monthly" ? "lp-btn-primary text-white shadow-md shadow-violet-500/20" : "text-slate-400 hover:text-white"}`}
+              >
+                Monthly
+              </button>
+              <button
+                onClick={() => setBillingCycle("yearly")}
+                className={`px-5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${billingCycle === "yearly" ? "lp-btn-primary text-white shadow-md shadow-violet-500/20" : "text-slate-400 hover:text-white"}`}
+              >
+                <span>Yearly</span>
+                <span className="px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-500 font-extrabold text-[9px]">Save 33%</span>
+              </button>
+            </div>
+          </div>
+
+          <div className="text-center text-xs text-slate-500 mb-10 flex items-center justify-center gap-2">
+            <span>🛡️ No hidden fees</span>
+            <span>•</span>
+            <span>Cancel anytime</span>
+            <span>•</span>
+            <span>Secure payments</span>
+          </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {[
               {
-                name: "Free",
-                price: "$0",
+                name: "Free Plan",
+                price: "Free",
                 period: "forever",
-                desc: "Everything you need to get started",
-                features: ["Unlimited tasks & subjects", "Pomodoro focus timer", "Exam countdown tracker", "Basic analytics", "Study streaks", "Cloud sync"],
-                cta: "Get started free",
+                bestFor: "Students getting started",
+                desc: "Essential core study tools",
+                features: ["Subject & Task Management", "Basic Pomodoro Timer", "Exam Countdown Tracking", "Weekly Study Analytics", "10 AI Credits / Month"],
+                cta: "Start Free",
                 featured: false,
               },
               {
-                name: "Pro",
-                price: "$0",
-                period: "always free",
+                name: "Pro Plan ⭐",
+                price: billingCycle === "monthly" ? "LKR 1,500" : "LKR 12,000",
+                period: billingCycle === "monthly" ? "Month" : "Year",
+                bestFor: "University students & learners",
                 badge: "Most Popular",
-                desc: "All features, zero cost — seriously",
-                features: ["Everything in Free", "AI task prioritization", "AI quiz generator", "Advanced analytics", "Progress insights", "Priority support"],
-                cta: "Start now — it's free",
+                savings: "Only LKR 50/day",
+                desc: "Full AI powers & productivity features",
+                features: ["Everything in Free +", "AI Study Planner & Notes", "AI Tutor (Explain Mode)", "AI Roadmap Generator", "Unlimited AI Quiz Generation", "Cloud Sync & Export PDF Reports", "500 AI Credits / Month"],
+                cta: "Upgrade to Pro",
                 featured: true,
               },
               {
-                name: "Campus",
-                price: "Custom",
-                period: "for institutions",
-                desc: "For universities and schools",
-                features: ["All Pro features", "Bulk student accounts", "Admin dashboard", "Usage analytics", "LMS integrations", "Dedicated support"],
-                cta: "Contact us",
+                name: "Premium Plan 👑",
+                price: billingCycle === "monthly" ? "LKR 2,500" : "LKR 20,000",
+                period: billingCycle === "monthly" ? "Month" : "Year",
+                bestFor: "Competitive exams & power users",
+                badge: "Best Value",
+                savings: "Less than LKR 85/day",
+                desc: "Smart revision & adaptive learning",
+                features: ["Everything in Pro +", "Smart Revision Suggestions", "Adaptive Study Planning", "Smart Learning Roadmaps", "Group Study Collaboration", "3,000 AI Credits / Month"],
+                cta: "Go Premium",
                 featured: false,
               },
             ].map((plan, i) => (
@@ -1359,11 +1393,15 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onGetStarted }) => {
                   </div>
                 )}
                 <div className="mb-6">
-                  <p className="text-slate-400 text-sm font-semibold uppercase tracking-widest mb-2">{plan.name}</p>
+                  <p className="text-slate-400 text-sm font-semibold uppercase tracking-widest mb-1">{plan.name}</p>
+                  <p className="text-[10px] text-slate-500 font-medium mb-2">Best for: <span className="text-slate-350">{plan.bestFor}</span></p>
                   <div className="flex items-baseline gap-2 mb-1">
-                    <span className="text-4xl font-black text-white lp-font-display">{plan.price}</span>
+                    <span className="text-3xl font-black text-white lp-font-display">{plan.price}</span>
                     <span className="text-slate-500 text-sm">/ {plan.period}</span>
                   </div>
+                  {plan.savings && (
+                    <p className="text-xs text-emerald-400 font-bold mb-2">💡 {plan.savings}</p>
+                  )}
                   <p className="text-slate-400 text-sm">{plan.desc}</p>
                 </div>
 

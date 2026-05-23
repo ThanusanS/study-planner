@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AuthProvider, useAuth } from "../contexts/AuthContext";
 import { LandingPage } from "../components/LandingPage";
 import { Auth } from "../components/Auth";
@@ -9,11 +9,13 @@ import { ExamsManager } from "../components/ExamsManager";
 import { PomodoroTimer } from "../components/PomodoroTimer";
 import { AiQuizGenerator } from "../components/AiQuizGenerator";
 import { OnboardingGuide } from "../components/OnboardingGuide";
+import { Billing } from "../components/Billing";
 import { PomodoroProvider } from "../contexts/PomodoroContext";
 import { Button } from "./components/ui/button";
 import { Toaster } from "./components/ui/sonner";
 import { ThemeProvider } from "next-themes";
 import databaseService from "../services/databaseService";
+import planService from "../services/planService";
 import {
   LayoutDashboard,
   CheckSquare,
@@ -21,6 +23,7 @@ import {
   Calendar,
   Timer,
   Sparkles,
+  CreditCard,
   LogOut,
   Moon,
   Sun,
@@ -37,7 +40,8 @@ type Page =
   | "subjects"
   | "exams"
   | "pomodoro"
-  | "ai-quiz";
+  | "ai-quiz"
+  | "billing";
 
 const Sidebar: React.FC<{
   currentPage: Page;
@@ -46,6 +50,25 @@ const Sidebar: React.FC<{
   const { user, logout } = useAuth();
   const { theme, setTheme } = useTheme();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [activePlan, setActivePlan] = useState<string>("free");
+
+  useEffect(() => {
+    if (user) {
+      const userId = user.$id || (user as any)?.id || "test-user";
+      planService.getUserPlan(userId).then((p) => {
+        setActivePlan(p.plan);
+      });
+    }
+
+    const handlePlanChange = (e: any) => {
+      setActivePlan(e.detail.plan);
+    };
+
+    window.addEventListener("studyPlanChanged", handlePlanChange);
+    return () => {
+      window.removeEventListener("studyPlanChanged", handlePlanChange);
+    };
+  }, [user]);
 
   const handleLogout = async () => {
     await logout();
@@ -59,6 +82,7 @@ const Sidebar: React.FC<{
     { id: "exams" as Page, label: "Exams", icon: Calendar },
     { id: "pomodoro" as Page, label: "Pomodoro", icon: Timer },
     { id: "ai-quiz" as Page, label: "AI Quiz", icon: Sparkles },
+    { id: "billing" as Page, label: "Billing & Plans", icon: CreditCard },
   ];
 
   // Generate dynamic initials for the user avatar
@@ -195,8 +219,20 @@ const Sidebar: React.FC<{
                 {initials}
               </div>
               <div className="overflow-hidden">
-                <div className="text-xs font-bold truncate text-foreground leading-tight">
-                  {user?.name || "Test User"}
+                <div className="flex items-center gap-1">
+                  <div className="text-xs font-bold truncate text-foreground leading-tight max-w-[80px]">
+                    {user?.name || "Test User"}
+                  </div>
+                  {activePlan === "pro" && (
+                    <span className="text-[8px] bg-violet-500/20 text-violet-600 dark:text-violet-400 font-extrabold px-1 rounded-sm shrink-0">
+                      PRO
+                    </span>
+                  )}
+                  {activePlan === "premium" && (
+                    <span className="text-[8px] bg-amber-500/20 text-amber-600 dark:text-amber-400 font-extrabold px-1 rounded-sm shrink-0">
+                      PREM
+                    </span>
+                  )}
                 </div>
                 <div className="text-[10px] text-muted-foreground truncate leading-none mt-0.5">
                   {user?.email || "student@academy.com"}
@@ -391,6 +427,7 @@ const AppContent: React.FC = () => {
           )}
           {currentPage === "pomodoro" && <PomodoroTimer />}
           {currentPage === "ai-quiz" && <AiQuizGenerator />}
+          {currentPage === "billing" && <Billing />}
           </div>
         </div>
       </main>

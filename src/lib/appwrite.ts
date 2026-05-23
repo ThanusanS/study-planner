@@ -14,6 +14,10 @@ export const appwriteConfig = {
   progressLogsCollectionId: "progressLogs",
   pomodoroSessionsCollectionId: "pomodoroSessions",
   quizHistoryCollectionId: "quizhistory",
+  // Billing & Pricing Collections
+  userPlansCollectionId: "userPlans",
+  usageLogsCollectionId: "usageLogs",
+  billingHistoryCollectionId: "billingHistory",
 };
 
 // Initialize Appwrite Client
