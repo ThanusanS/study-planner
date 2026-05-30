@@ -34,6 +34,10 @@ import {
   FileText,
   Map,
   HelpCircle,
+  Download,
+  RotateCcw,
+  Send,
+  ChevronRight,
 } from "lucide-react";
 import { LogoFull } from "./branding/LogoFull";
 
@@ -122,12 +126,35 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onGetStarted }) => {
   const heroScale = useTransform(scrollYProgress, [0, 0.35], [1, 0.9]);
 
   // Interactive dashboard states
-  const [activeTab, setActiveTab] = useState<'planner' | 'pomodoro' | 'analytics'>('planner');
+  const [activeTab, setActiveTab] = useState<'quiz' | 'notes' | 'roadmap' | 'tutor' | 'workspace'>('quiz');
   const [timerSeconds, setTimerSeconds] = useState(1500); // 25:00
   const [timerIsRunning, setTimerIsRunning] = useState(false);
   const [rescheduling, setRescheduling] = useState(false);
   const [aiMessage, setAiMessage] = useState("Hi! I'm your AI Study Assistant. Click 'Reschedule with AI' to optimize your day.");
   const [billingCycle, setBillingCycle] = useState<'monthly' | 'yearly'>('monthly');
+
+  // Interactive AI Quiz Studio states
+  const [selectedQuizOption, setSelectedQuizOption] = useState<number | null>(null);
+  const [quizRetakeKey, setQuizRetakeKey] = useState(0);
+
+  // Interactive AI Notes Builder states
+  const [notesMode, setNotesMode] = useState<'short' | 'full'>('short');
+
+  // Interactive AI Roadmap Planner states
+  const [roadmapWeek, setRoadmapWeek] = useState(1);
+
+  // Interactive AI Tutor Explain Mode states
+  const [tutorTopic, setTutorTopic] = useState<'physics' | 'mitosis' | 'cryptography'>('physics');
+  const [tutorLevel, setTutorLevel] = useState<'analogy' | 'deep'>('analogy');
+  const [tutorInput, setTutorInput] = useState('');
+  const [isTutorTyping, setIsTutorTyping] = useState(false);
+  const [tutorChat, setTutorChat] = useState<Array<{ sender: 'user' | 'ai', text: string }>>([
+    { sender: 'user', text: "Explain Special Relativity using simple analogies." },
+    { sender: 'ai', text: "Imagine you're on a super-fast train moving near the speed of light. To you, your watch ticks normally. But to someone standing on the platform watching you zoom past, your watch is ticking in slow motion! Time literally stretches depending on how fast you are moving. Space-time is flexible, not rigid!" }
+  ]);
+
+  // Core study tools workspace states
+  const [workspaceSubTab, setWorkspaceSubTab] = useState<'planner' | 'pomodoro' | 'analytics'>('planner');
   
   // Custom mock task list
   const [mockTasks, setMockTasks] = useState([
@@ -137,6 +164,54 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onGetStarted }) => {
     { id: 4, t: "Read Chapter 9 — Organic Chemistry", d: "Chemistry", done: false, p: "med", time: "3:30 PM" },
     { id: 5, t: "Flashcard review — Biology terms", d: "Biology", done: true, p: "low", time: "9:00 AM" },
   ]);
+
+  // Dynamically update tutor chat based on selection
+  useEffect(() => {
+    let aiText = "";
+    let userText = "";
+    if (tutorTopic === 'physics') {
+      userText = "Explain Special Relativity using simple analogies.";
+      aiText = tutorLevel === 'analogy' 
+        ? "Imagine you're on a super-fast train moving near the speed of light. To you, your watch ticks normally. But to someone standing on the platform watching you zoom past, your watch is ticking in slow motion! Time literally stretches depending on how fast you are moving. Space-time is flexible, not rigid!"
+        : "Special Relativity, formulated by Albert Einstein in 1905, is based on two postulates: (1) The laws of physics are invariant in all inertial frames of reference. (2) The speed of light in vacuum is constant for all observers. Consequently, space and time are linked in a four-dimensional continuum known as spacetime, leading to time dilation (t' = t / sqrt(1 - v^2/c^2)) and length contraction.";
+    } else if (tutorTopic === 'mitosis') {
+      userText = "What is Mitosis?";
+      aiText = tutorLevel === 'analogy'
+        ? "Think of mitosis like photocopying a giant instruction manual. The cell makes a perfect copy of all its DNA pages (chromosomes), lines them up down the middle, and pulls the two identical sets to opposite sides before splitting. Now you have two identical manuals in two separate cells!"
+        : "Mitosis is a process of eukaryotic karyokinesis and cell division that produces two identical diploid somatic daughter cells. It consists of five consecutive phases: Prophase (nuclear envelope condensation), Prometaphase (microtubule spindle assembly), Metaphase (chromosomal plate alignment), Anaphase (sister chromatid separation), and Telophase (nuclear envelope reformation).";
+    } else {
+      userText = "How does public-key cryptography work?";
+      aiText = tutorLevel === 'analogy'
+        ? "Imagine a mailbox with a slot. Anyone can drop a letter in through the open public slot (Public Key), but only the homeowner with the private mailbox key (Private Key) can open the door at the back and read the letters. Encrypting is like dropping the letter in; decrypting is unlocking the box."
+        : "Public-key cryptography (asymmetric cryptography) is a cryptographic system that uses pairs of keys: public keys (which may be disseminated widely) and private keys (which are known only to the owner). The generation of such keys depends on cryptographic algorithms based on mathematical problems to produce one-way functions, typically prime factorization (RSA) or discrete logarithms (ECC).";
+    }
+
+    setTutorChat([
+      { sender: 'user', text: userText },
+      { sender: 'ai', text: aiText }
+    ]);
+  }, [tutorTopic, tutorLevel]);
+
+  const handleSendTutorMessage = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!tutorInput.trim() || isTutorTyping) return;
+    
+    const userMsg = tutorInput.trim();
+    setTutorInput('');
+    setTutorChat(prev => [...prev, { sender: 'user', text: userMsg }]);
+    setIsTutorTyping(true);
+
+    setTimeout(() => {
+      let reply = "";
+      if (userMsg.toLowerCase().includes("example") || userMsg.toLowerCase().includes("how") || userMsg.toLowerCase().includes("practical")) {
+        reply = "Great follow-up question! For example, GPS satellites must calibrate their internal clocks daily to compensate for both speed (Special Relativity) and distance from Earth's gravity (General Relativity) — otherwise, your Google Maps would be off by kilometers in just one day!";
+      } else {
+        reply = "A superb observation! Our AI Tutor will analyze this specifically in your course syllabus context to ensure you get full marks on your exam structure.";
+      }
+      setTutorChat(prev => [...prev, { sender: 'ai', text: reply }]);
+      setIsTutorTyping(false);
+    }, 1000);
+  };
 
   // Floating particles
   const particles = [
@@ -643,7 +718,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onGetStarted }) => {
             </motion.div>
           </div>
 
-          {/* Dashboard Preview Card */}
+          {/* Dashboard Preview Card (Interactive AI Studio Playground) */}
           <motion.div
             initial={{ opacity: 0, y: 60 }}
             animate={{ opacity: 1, y: 0 }}
@@ -670,17 +745,22 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onGetStarted }) => {
                   <div className="w-3 h-3 rounded-full bg-emerald-500/70" />
                 </div>
                 
-                {/* Tabs switcher inside window title area (Responsive & compact for 390px mobile) */}
-                <div className="flex bg-white/[0.08] p-1 rounded-xl w-full sm:w-auto sm:mx-auto max-w-md border border-white/[0.08]">
+                {/* Tabs switcher inside window title area (Responsive & compact) */}
+                <div className="flex bg-white/[0.08] p-1 rounded-xl w-full sm:w-auto sm:mx-auto max-w-2xl border border-white/[0.08] overflow-x-auto gap-1">
                   {[
-                    { id: 'planner', label: 'AI Planner', icon: Brain },
-                    { id: 'pomodoro', label: 'Focus Mode', icon: Timer },
-                    { id: 'analytics', label: 'Analytics', icon: BarChart3 }
+                    { id: 'quiz', label: 'AI Quiz Studio', icon: Sparkles },
+                    { id: 'notes', label: 'AI Notes Builder', icon: FileText },
+                    { id: 'roadmap', label: 'AI Roadmap Planner', icon: Map },
+                    { id: 'tutor', label: 'AI Tutor Explain', icon: HelpCircle },
+                    { id: 'workspace', label: 'Workspace', icon: LayoutDashboard }
                   ].map(tab => (
                     <button
                       key={tab.id}
-                      onClick={() => setActiveTab(tab.id as any)}
-                      className={`flex-1 sm:flex-initial flex items-center justify-center gap-1.5 px-2.5 sm:px-4 py-1.5 rounded-lg text-[10px] sm:text-xs font-bold transition-all cursor-pointer ${activeTab === tab.id ? 'bg-white/10 text-white shadow-md border border-white/10' : 'text-slate-300 hover:text-white hover:bg-white/[0.02]'}`}
+                      onClick={() => {
+                        setActiveTab(tab.id as any);
+                        toast.info(`Opened ${tab.label} playground!`);
+                      }}
+                      className={`flex-1 sm:flex-initial flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-[10px] sm:text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${activeTab === tab.id ? 'bg-white/10 text-white shadow-md border border-white/10' : 'text-slate-355 hover:text-white hover:bg-white/[0.02]'}`}
                     >
                       <tab.icon className="w-3.5 h-3.5" />
                       <span>{tab.label}</span>
@@ -689,240 +769,684 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onGetStarted }) => {
                 </div>
 
                 <div className="hidden md:block">
-                  <div className="bg-white/5 rounded-lg px-4 py-1 text-slate-300 text-xs text-center">studyplanner.app/dashboard</div>
+                  <div className="bg-white/5 rounded-lg px-4 py-1 text-slate-300 text-xs text-center">studyplanner.app/playground</div>
                 </div>
               </div>
 
               {/* Main Tab Content */}
-              <div className="p-4 sm:p-6 min-h-[350px]">
-                {activeTab === 'planner' && (
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6 animate-in fade-in duration-300">
-                    {/* Left: Interactive Task List */}
-                    <div className="md:col-span-2 rounded-2xl p-4 bg-white/[0.04] border border-white/[0.08]">
-                      <div className="flex items-center justify-between mb-4">
-                        <div>
-                          <span className="text-white font-black text-sm block">Today's Tasks</span>
-                          <span className="text-slate-350 text-xs font-medium">Sorted by priority</span>
-                        </div>
-                        <button
-                          onClick={handleAiReschedule}
-                          disabled={rescheduling}
-                          className="lp-btn-primary px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 disabled:opacity-50"
-                        >
-                          <Sparkles className={`w-3 h-3 ${rescheduling ? 'animate-spin' : ''}`} />
-                          <span>{rescheduling ? 'Optimizing...' : 'Reschedule with AI'}</span>
-                        </button>
+              <div className="p-4 sm:p-6 min-h-[380px]">
+                {/* ─── TAB: AI QUIZ ─── */}
+                {activeTab === 'quiz' && (
+                  <div key={quizRetakeKey} className="max-w-3xl mx-auto animate-in fade-in duration-300">
+                    <div className="flex flex-wrap items-center justify-between gap-2 mb-4 pb-3 border-b border-white/5">
+                      <div className="flex items-center gap-2">
+                        <span className="text-white font-extrabold text-sm sm:text-base">📚 Biology Exam Practice Quiz</span>
+                        <span className="px-2 py-0.5 rounded-full bg-indigo-500/10 text-indigo-400 font-semibold border border-indigo-500/20 text-[10px]">MCQ</span>
                       </div>
-                      
-                      <div className="space-y-2">
-                        {mockTasks.map((task) => (
-                          <div key={task.id} className="flex items-center gap-3 py-2.5 px-3 rounded-xl bg-white/[0.04] border border-white/[0.08] hover:bg-white/[0.08] transition-colors">
-                            <div className={`w-5 h-5 rounded flex items-center justify-center flex-shrink-0 ${task.done ? "bg-emerald-500" : "border-2 border-white/40"}`}>
-                              {task.done && <Check className="w-3 h-3 text-white" />}
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <p className={`text-xs sm:text-sm font-semibold truncate ${task.done ? "text-slate-500 line-through" : "text-white"}`}>{task.t}</p>
-                              <div className="flex items-center gap-2 mt-0.5">
-                                <span className="text-slate-300 text-[10px] font-semibold">{task.d}</span>
-                                <span className="text-slate-400 text-[9px]">•</span>
-                                <span className="text-slate-300 text-[10px] font-semibold">{task.time}</span>
-                              </div>
-                            </div>
-                            <span className={`text-[10px] font-extrabold px-2 py-0.5 rounded-full flex-shrink-0 uppercase ${task.p === "high" ? "bg-red-500/20 text-red-300 border border-red-500/30" : task.p === "med" ? "bg-amber-500/20 text-amber-300 border border-amber-500/30" : "bg-slate-500/20 text-slate-300 border border-slate-500/30"}`}>
-                              {task.p}
-                            </span>
-                          </div>
-                        ))}
+                      <div className="flex items-center gap-3 text-xs text-slate-400 font-medium">
+                        <span>Difficulty: <strong className="text-slate-200">Medium</strong></span>
+                        <span>•</span>
+                        <span>Questions: <strong className="text-slate-200">8</strong></span>
                       </div>
                     </div>
 
-                    {/* Right: AI Assistant panel */}
-                    <div className="rounded-2xl p-4 bg-white/[0.04] border border-white/[0.08] flex flex-col justify-between">
+                    <div className="mb-4">
+                      <div className="flex justify-between items-center text-xs text-slate-450 font-bold mb-1.5">
+                        <span>Question 1 of 8</span>
+                        <span>12.5% Complete</span>
+                      </div>
+                      <div className="h-1.5 rounded-full bg-white/5 overflow-hidden">
+                        <div className="h-full rounded-full bg-gradient-to-r from-violet-500 to-indigo-500" style={{ width: "12.5%" }} />
+                      </div>
+                    </div>
+
+                    <div className="bg-white/[0.03] border border-white/[0.06] rounded-2xl p-4 sm:p-5 mb-5 shadow-inner">
+                      <h4 className="text-white font-bold text-sm sm:text-base mb-4 leading-relaxed">
+                        Q1: Which organelle is widely referred to as the "powerhouse of the cell" due to its role in producing adenosine triphosphate (ATP)?
+                      </h4>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        {[
+                          { id: 1, label: "A. Lysosome", desc: "Handles intracellular waste digestion" },
+                          { id: 2, label: "B. Mitochondria", desc: "Generates ATP through cellular respiration", correct: true },
+                          { id: 3, label: "C. Golgi Apparatus", desc: "Packages and routes cellular proteins" },
+                          { id: 4, label: "D. Endoplasmic Reticulum", desc: "Synthesizes proteins and lipids" }
+                        ].map((opt) => {
+                          const isSelected = selectedQuizOption === opt.id;
+                          const hasSelected = selectedQuizOption !== null;
+                          const showCorrect = hasSelected && opt.correct;
+                          const showIncorrect = isSelected && !opt.correct;
+
+                          let btnStyle = "bg-white/[0.02] border-white/[0.08] hover:bg-white/[0.06] hover:border-violet-500/40 text-slate-250";
+                          let icon = null;
+
+                          if (showCorrect) {
+                            btnStyle = "bg-emerald-500/10 border-emerald-500/70 text-emerald-350 shadow-md shadow-emerald-500/5";
+                            icon = <Check className="w-4 h-4 text-emerald-400 flex-shrink-0" />;
+                          } else if (showIncorrect) {
+                            btnStyle = "bg-rose-500/10 border-rose-500/70 text-rose-350 shadow-md shadow-rose-500/5";
+                            icon = <X className="w-4 h-4 text-rose-400 flex-shrink-0" />;
+                          } else if (hasSelected) {
+                            btnStyle = "bg-white/[0.01] border-white/[0.03] text-slate-500 opacity-60";
+                          }
+
+                          return (
+                            <button
+                              key={opt.id}
+                              disabled={hasSelected}
+                              onClick={() => {
+                                setSelectedQuizOption(opt.id);
+                                toast.success(opt.correct ? "🎯 Correct answer! +10 XP" : "❌ Incorrect. AI is displaying explanation.");
+                              }}
+                              className={`flex items-start gap-3 p-3.5 rounded-xl border text-left transition-all duration-350 text-xs sm:text-sm font-semibold cursor-pointer ${btnStyle}`}
+                            >
+                              <div className="flex-1">
+                                <p className="font-bold">{opt.label}</p>
+                                <p className={`text-[10.5px] mt-0.5 font-medium ${isSelected ? 'text-inherit' : 'text-slate-400'}`}>{opt.desc}</p>
+                              </div>
+                              {icon}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    {selectedQuizOption !== null && (
+                      <motion.div
+                        initial={{ opacity: 0, y: 15 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        className="rounded-2xl border bg-white/[0.02] border-white/[0.08] p-4 animate-in duration-300 shadow-md animate-in fade-in"
+                      >
+                        <div className="flex items-center gap-2 mb-2">
+                          <div className="w-6 h-6 rounded-lg bg-violet-500/20 flex items-center justify-center border border-violet-500/30">
+                            <Brain className="w-3.5 h-3.5 text-violet-400" />
+                          </div>
+                          <span className="text-white font-extrabold text-xs tracking-wide uppercase">💡 AI Feedback & Explanation</span>
+                        </div>
+                        <p className="text-xs sm:text-sm text-slate-350 leading-relaxed font-medium">
+                          {selectedQuizOption === 2 ? (
+                            <span className="text-emerald-400 font-bold block mb-1">🎯 Correct! Excellent work.</span>
+                          ) : (
+                            <span className="text-rose-450 font-bold block mb-1">❌ Incorrect. Let's learn why:</span>
+                          )}
+                          Mitochondria is correct! It acts as the cellular powerhouse by extracting energy from nutrients via cellular respiration and storing it as ATP. Lysosomes are waste disposers, Golgi is the shipping center, and ER synthesizes proteins and lipids.
+                        </p>
+                        <div className="flex items-center gap-2.5 mt-4 pt-3 border-t border-white/5">
+                          <button
+                            onClick={() => {
+                              setSelectedQuizOption(null);
+                              setQuizRetakeKey(prev => prev + 1);
+                              toast.info("Quiz reset. Try again!");
+                            }}
+                            className="px-3.5 py-2 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 text-white text-xs font-extrabold flex items-center gap-1.5 transition-all cursor-pointer"
+                          >
+                            <RotateCcw className="w-3 h-3" />
+                            <span>Retake Quiz</span>
+                          </button>
+                          <button
+                            onClick={() => toast.success("PDF Download Simulated successfully!")}
+                            className="px-3.5 py-2 rounded-xl bg-gradient-to-r from-violet-500 to-indigo-500 hover:brightness-110 text-white text-xs font-extrabold flex items-center gap-1.5 transition-all cursor-pointer shadow-md shadow-violet-500/10"
+                          >
+                            <Download className="w-3.5 h-3.5" />
+                            <span>Download PDF</span>
+                          </button>
+                        </div>
+                      </motion.div>
+                    )}
+                  </div>
+                )}
+
+                {/* ─── TAB: AI NOTES ─── */}
+                {activeTab === 'notes' && (
+                  <div className="max-w-3xl mx-auto animate-in fade-in duration-300">
+                    <div className="flex flex-wrap items-center justify-between gap-3 mb-4 pb-3 border-b border-white/5">
                       <div>
-                        <div className="flex items-center gap-2 mb-3">
-                          <div className="w-7 h-7 rounded-lg bg-violet-500/20 flex items-center justify-center border border-violet-500/30">
-                            <Brain className="w-4 h-4 text-violet-400" />
+                        <span className="text-white font-extrabold text-sm sm:text-base block">📝 Artificial Intelligence & Neural Networks</span>
+                        <span className="text-[10px] text-slate-400 font-semibold block mt-0.5">Deducted: {notesMode === 'short' ? '1' : '2'} AI Credits</span>
+                      </div>
+                      <div className="flex p-0.5 rounded-xl bg-white/5 border border-white/10">
+                        <button
+                          onClick={() => { setNotesMode('short'); toast.info("Switched to Short Revision Notes."); }}
+                          className={`px-3 py-1.5 rounded-lg text-[10px] font-extrabold transition-all cursor-pointer ${notesMode === 'short' ? 'bg-white/10 text-white shadow-inner' : 'text-slate-400 hover:text-white'}`}
+                        >
+                          Short Notes
+                        </button>
+                        <button
+                          onClick={() => { setNotesMode('full'); toast.info("Switched to Full Detailed Notes."); }}
+                          className={`px-3 py-1.5 rounded-lg text-[10px] font-extrabold transition-all cursor-pointer ${notesMode === 'full' ? 'bg-white/10 text-white shadow-inner' : 'text-slate-400 hover:text-white'}`}
+                        >
+                          Full Notes
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="bg-white/[0.02] border border-white/[0.08] rounded-2xl p-4 sm:p-5 max-h-[260px] overflow-y-auto shadow-inner space-y-4">
+                      {notesMode === 'short' ? (
+                        <div className="space-y-3.5 animate-in fade-in">
+                          <div className="flex items-start gap-2.5">
+                            <span className="text-sm mt-0.5">🧠</span>
+                            <div>
+                              <p className="text-white font-bold text-xs sm:text-sm">Artificial Neural Networks (ANN)</p>
+                              <p className="text-slate-350 text-xs mt-0.5 leading-relaxed font-semibold">Layers of interconnected nodes (neurons) mimicking biological structures. Composed of Input, Hidden, and Output layers.</p>
+                            </div>
+                          </div>
+                          <div className="flex items-start gap-2.5">
+                            <span className="text-sm mt-0.5">🔄</span>
+                            <div>
+                              <p className="text-white font-bold text-xs sm:text-sm">Backpropagation & Gradient Descent</p>
+                              <p className="text-slate-350 text-xs mt-0.5 leading-relaxed font-semibold">The mathematical engine. Calculates error at output, propagates it backward, and adjusts weights using derivatives to minimize cost function.</p>
+                            </div>
+                          </div>
+                          <div className="flex items-start gap-2.5">
+                            <span className="text-sm mt-0.5">📈</span>
+                            <div>
+                              <p className="text-white font-bold text-xs sm:text-sm">Deep Learning vs Machine Learning</p>
+                              <p className="text-slate-355 text-xs mt-0.5 leading-relaxed font-semibold">DL relies on deep artificial neural nets (many hidden layers) and performs automatic feature extraction. ML requires manual feature engineering.</p>
+                            </div>
+                          </div>
+                          <div className="flex items-start gap-2.5">
+                            <span className="text-sm mt-0.5">🔮</span>
+                            <div>
+                              <p className="text-white font-bold text-xs sm:text-sm">Transformer Model & Self-Attention</p>
+                              <p className="text-slate-350 text-xs mt-0.5 leading-relaxed font-semibold">Processes input sequences in parallel. Self-attention weights relationships between distant words (e.g., GPT, Claude, Gemini models).</p>
+                            </div>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="space-y-4 font-sans leading-relaxed text-slate-300 text-xs sm:text-sm font-semibold animate-in fade-in">
+                          <div>
+                            <h5 className="text-white font-black text-sm mb-1 lp-font-display">🌐 1. Fundamentals of Artificial Intelligence</h5>
+                            <p>Artificial Intelligence (AI) represents the simulation of human intelligence processes by machines, especially computer systems. These cognitive processes include acquisition of information (learning), reasoning to reach approximate or definite conclusions (reasoning), and self-correction.</p>
                           </div>
                           <div>
-                            <p className="text-white font-bold text-xs">AI Study Coach</p>
-                            <p className="text-emerald-400 text-[10px] flex items-center gap-1 font-semibold"><span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" /> Active</p>
+                            <h5 className="text-white font-black text-sm mb-1 lp-font-display">🧠 2. The Architecture of Artificial Neural Networks</h5>
+                            <p>Artificial Neural Networks (ANN) form the backbone of modern Deep Learning. An ANN consists of three primary layers:</p>
+                            <ul className="list-disc pl-5 mt-1.5 space-y-1">
+                              <li><strong className="text-white">Input Layer:</strong> Receives raw features (e.g., pixel intensities in image classification).</li>
+                              <li><strong className="text-white">Hidden Layers:</strong> Perform mathematical transformations using weights, biases, and activation functions (like ReLU) to extract abstract representations.</li>
+                              <li><strong className="text-white">Output Layer:</strong> Outputs final classification probabilities or continuous numerical predictions.</li>
+                            </ul>
+                          </div>
+                          <div>
+                            <h5 className="text-white font-black text-sm mb-1 lp-font-display">🛠️ 3. Practical Example: Image Classification</h5>
+                            <p>When an AI classifies a photo of a cat, pixel values pass through multiple convolutional hidden layers, which sequentially detect edges, then shapes, then cat-specific features (ears, whiskers), before the output layer outputs 'Cat' with 98% confidence.</p>
                           </div>
                         </div>
-                        
-                        <div className="rounded-xl p-3 bg-violet-500/[0.08] border border-violet-500/30 mb-4 min-h-[120px] flex flex-col justify-center">
-                          <p className="text-xs text-violet-100 leading-relaxed italic font-medium">
-                            "{aiMessage}"
-                          </p>
-                        </div>
-                      </div>
+                      )}
+                    </div>
 
-                      <div className="space-y-2 mt-auto">
-                        <div className="text-[10px] text-slate-400 font-bold tracking-wider uppercase">Auto-Suggestions</div>
-                        <div className="p-2.5 rounded-xl bg-white/[0.04] border border-white/[0.08] hover:bg-white/[0.08] transition-colors cursor-pointer text-[11px] text-slate-200 font-medium" onClick={handleAiReschedule}>
-                          ⚡ Physics exam date updated. Let's reschedule.
-                        </div>
-                        <div className="p-2.5 rounded-xl bg-white/[0.04] border border-white/[0.08] hover:bg-white/[0.08] transition-colors cursor-pointer text-[11px] text-slate-200 font-medium" onClick={() => setActiveTab('pomodoro')}>
-                          🍅 Set a 25-min Pomodoro for thermodynamics.
-                        </div>
-                      </div>
+                    <div className="flex justify-end gap-2.5 mt-4">
+                      <button
+                        onClick={() => toast.success("Simulated Notes PDF download initiated!")}
+                        className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-violet-500 to-indigo-500 hover:brightness-110 text-white text-xs font-extrabold flex items-center gap-1.5 transition-all cursor-pointer shadow-md shadow-violet-500/10"
+                      >
+                        <Download className="w-3.5 h-3.5" />
+                        <span>Download Notes PDF</span>
+                      </button>
                     </div>
                   </div>
                 )}
 
-                {activeTab === 'pomodoro' && (
-                  <div className="flex flex-col md:flex-row items-center justify-center gap-10 animate-in fade-in duration-300 max-w-3xl mx-auto py-4">
-                    {/* Left: Circular Countdown Timer */}
-                    <div className="relative w-52 h-52 flex items-center justify-center flex-shrink-0">
-                      {/* Timer background SVG ring */}
-                      <svg className="absolute w-full h-full transform -rotate-90">
-                        <circle
-                          cx="104"
-                          cy="104"
-                          r="92"
-                          stroke="rgba(255,255,255,0.06)"
-                          strokeWidth="8"
-                          fill="transparent"
-                        />
-                        <motion.circle
-                          cx="104"
-                          cy="104"
-                          r="92"
-                          stroke="url(#timerGradient)"
-                          strokeWidth="8"
-                          fill="transparent"
-                          strokeDasharray={2 * Math.PI * 92}
-                          animate={{
-                            strokeDashoffset: (2 * Math.PI * 92) * (1 - timerSeconds / 1500)
-                          }}
-                          transition={{ duration: 1, ease: "linear" }}
-                        />
-                        <defs>
-                          <linearGradient id="timerGradient" x1="0%" y1="0%" x2="100%" y2="100%">
-                            <stop offset="0%" stopColor="#8b5cf6" />
-                            <stop offset="100%" stopColor="#ec4899" />
-                          </linearGradient>
-                        </defs>
-                      </svg>
-                      
-                      {/* Center Time Display */}
-                      <div className="text-center z-10">
-                        <div className="text-4xl font-black tracking-tight text-white lp-font-display">
-                          {formatTime(timerSeconds)}
-                        </div>
-                        <p className="text-[10px] font-bold text-pink-400 tracking-widest uppercase mt-1">Focus Session</p>
+                {/* ─── TAB: AI ROADMAP ─── */}
+                {activeTab === 'roadmap' && (
+                  <div className="max-w-3xl mx-auto animate-in fade-in duration-300">
+                    <div className="flex flex-wrap items-center justify-between gap-2 mb-4 pb-3 border-b border-white/5">
+                      <div className="flex items-center gap-2">
+                        <span className="text-white font-extrabold text-sm sm:text-base">🗺️ Full-Stack Web Development Curriculum</span>
+                        <span className="px-2 py-0.5 rounded-full bg-orange-500/10 text-orange-400 font-semibold border border-orange-500/20 text-[10px]">4 Weeks</span>
                       </div>
+                      <span className="text-xs text-slate-400 font-semibold font-sans">Roadmap Type: <strong className="text-slate-200">Detailed Plan</strong></span>
                     </div>
 
-                    {/* Right: Controls & Info */}
-                    <div className="space-y-4 text-center md:text-left flex-1">
-                      <div>
-                        <h4 className="text-xl font-bold text-white lp-font-display">Focus Sprint</h4>
-                        <p className="text-xs text-slate-300 mt-1 max-w-sm font-medium">Work in uninterrupted, intense blocks. Clicking the play/pause button below simulates the real timer.</p>
-                      </div>
-
-                      <div className="flex flex-wrap items-center justify-center md:justify-start gap-3">
-                        <button
-                          onClick={() => setTimerIsRunning(!timerIsRunning)}
-                          className="px-6 py-2.5 rounded-xl bg-gradient-to-r from-violet-500 to-pink-500 text-white font-bold text-sm hover:brightness-110 active:scale-95 transition-all flex items-center gap-2 cursor-pointer shadow-md shadow-pink-500/10 animate-pulse-ring"
-                        >
-                          {timerIsRunning ? (
-                            <>
-                              <div className="w-2.5 h-2.5 bg-white rounded-sm animate-pulse" />
-                              <span>Pause Timer</span>
-                            </>
-                          ) : (
-                            <>
-                              <Play className="w-3.5 h-3.5 text-white fill-white" />
-                              <span>Start Timer</span>
-                            </>
-                          )}
-                        </button>
-                        
-                        <button
-                          onClick={() => { setTimerIsRunning(false); setTimerSeconds(1500); }}
-                          className="px-4 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white text-xs font-semibold hover:bg-white/10 active:scale-95 transition-all cursor-pointer"
-                        >
-                          Reset
-                        </button>
-                      </div>
-
-                      <div className="grid grid-cols-2 gap-3 pt-2">
-                        <div className="p-3 rounded-xl bg-white/[0.04] border border-white/[0.08] text-center">
-                          <p className="text-[10px] text-slate-400 font-bold tracking-wider uppercase">Interval</p>
-                          <p className="text-sm font-black text-white mt-1">25 min</p>
-                        </div>
-                        <div className="p-3 rounded-xl bg-white/[0.04] border border-white/[0.08] text-center">
-                          <p className="text-[10px] text-slate-400 font-bold tracking-wider uppercase">Break</p>
-                          <p className="text-sm font-black text-white mt-1">5 min</p>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {activeTab === 'analytics' && (
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6 animate-in fade-in duration-300">
-                    {/* Charts */}
-                    <div className="md:col-span-2 rounded-2xl p-4 bg-white/[0.04] border border-white/[0.08]">
-                      <div className="flex items-center justify-between mb-4">
-                        <div>
-                          <span className="text-white font-bold text-sm block">Study Distribution</span>
-                          <span className="text-slate-350 text-xs font-semibold">Minutes logged per subject</span>
-                        </div>
-                        <span className="text-emerald-400 text-xs font-bold">+18% vs last week</span>
-                      </div>
-
-                      {/* Mock Chart using CSS and Flex */}
-                      <div className="h-44 flex items-end gap-3 sm:gap-6 pt-4 pb-2 px-2">
+                    <div className="grid grid-cols-1 md:grid-cols-[0.8fr_1.2fr] gap-4">
+                      {/* Left: Step selector */}
+                      <div className="flex md:flex-col gap-2 overflow-x-auto md:overflow-x-visible pb-2 md:pb-0">
                         {[
-                          { label: "Mon", val: 75, color: "bg-violet-500" },
-                          { label: "Tue", val: 95, color: "bg-indigo-500" },
-                          { label: "Wed", val: 55, color: "bg-cyan-500" },
-                          { label: "Thu", val: 120, color: "bg-pink-500" },
-                          { label: "Fri", val: 80, color: "bg-rose-500" },
-                          { label: "Sat", val: 40, color: "bg-emerald-500" },
-                          { label: "Sun", val: 65, color: "bg-amber-500" },
-                        ].map((bar, i) => (
-                          <div key={i} className="flex-1 flex flex-col items-center gap-2 h-full justify-end group">
-                            <div className="text-[9px] text-slate-300 opacity-0 group-hover:opacity-100 transition-opacity duration-200 font-bold">{bar.val}m</div>
-                            <motion.div
-                              initial={{ height: 0 }}
-                              animate={{ height: `${(bar.val / 120) * 100}%` }}
-                              transition={{ delay: i * 0.05, duration: 0.8, ease: "easeOut" }}
-                              className={`w-full rounded-t-lg ${bar.color} hover:brightness-115 transition-all shadow-lg`}
-                            />
-                            <span className="text-[10px] text-slate-300 font-semibold">{bar.label}</span>
+                          { week: 1, title: "Week 1: Foundations", tag: "HTML, CSS & modern JS" },
+                          { week: 2, title: "Week 2: Frontend", tag: "React & Component APIs" },
+                          { week: 3, title: "Week 3: Backend", tag: "Node.js, Express & DBs" },
+                          { week: 4, title: "Week 4: Operations", tag: "Global State & CI/CD" }
+                        ].map((w) => (
+                          <button
+                            key={w.week}
+                            onClick={() => {
+                              setRoadmapWeek(w.week);
+                              toast.info(`Switched to ${w.title}`);
+                            }}
+                            className={`flex-1 md:flex-none p-3 rounded-xl border text-left transition-all cursor-pointer ${roadmapWeek === w.week ? 'bg-violet-500/10 border-violet-500 text-white shadow-md shadow-violet-500/5' : 'bg-white/[0.02] border-white/[0.08] hover:bg-white/[0.04] text-slate-400 hover:text-white'}`}
+                          >
+                            <p className="text-xs font-extrabold">{w.title}</p>
+                            <p className="text-[10px] mt-0.5 text-slate-400 truncate hidden md:block font-semibold">{w.tag}</p>
+                          </button>
+                        ))}
+                      </div>
+
+                      {/* Right: Step content */}
+                      <div className="bg-white/[0.02] border border-white/[0.08] rounded-2xl p-4 sm:p-5 shadow-inner min-h-[220px] flex flex-col justify-between">
+                        {roadmapWeek === 1 && (
+                          <div className="space-y-3 flex-1 animate-in fade-in duration-300">
+                            <div>
+                              <h5 className="text-white font-extrabold text-sm sm:text-base">🚀 Week 1: Core Web & JS Engines</h5>
+                              <p className="text-slate-350 text-xs mt-1 leading-relaxed font-semibold">Lay a bulletproof foundation. Understand semantic browser rendering, responsive styling patterns, and asynchronous single-threaded JS runtimes.</p>
+                            </div>
+                            <div className="space-y-2">
+                              <p className="text-[10px] text-slate-450 font-black uppercase tracking-wider">📍 Major Milestones</p>
+                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs font-semibold text-slate-300">
+                                <span className="flex items-center gap-1.5">🌟 Master ES6+ Async/Await</span>
+                                <span className="flex items-center gap-1.5">🌟 Understand Event Loop Engine</span>
+                                <span className="flex items-center gap-1.5">🌟 Responsive CSS (Grid / Flexbox)</span>
+                              </div>
+                            </div>
+                            <div className="pt-2 text-xs font-semibold">
+                              <span className="text-orange-400 font-extrabold">🛠️ Hands-on Project:</span>
+                              <p className="text-slate-300 mt-0.5 font-medium">Build a fully responsive browser dashboard with async REST API data fetching and CSS grid layouts.</p>
+                            </div>
                           </div>
+                        )}
+                        {roadmapWeek === 2 && (
+                          <div className="space-y-3 flex-1 animate-in fade-in duration-300">
+                            <div>
+                              <h5 className="text-white font-extrabold text-sm sm:text-base">⚛️ Week 2: React Component Architecture</h5>
+                              <p className="text-slate-350 text-xs mt-1 leading-relaxed font-semibold">Dive into composition and unidirectional data flows. Build highly interactive, modular user interfaces with proper state boundaries.</p>
+                            </div>
+                            <div className="space-y-2">
+                              <p className="text-[10px] text-slate-455 font-black uppercase tracking-wider">📍 Major Milestones</p>
+                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs font-semibold text-slate-300">
+                                <span className="flex items-center gap-1.5">🌟 Component lifecycle & hooks</span>
+                                <span className="flex items-center gap-1.5">🌟 Virtual DOM reconciliation</span>
+                                <span className="flex items-center gap-1.5">🌟 Context API & local state</span>
+                              </div>
+                            </div>
+                            <div className="pt-2 text-xs font-semibold">
+                              <span className="text-orange-400 font-extrabold">🛠️ Hands-on Project:</span>
+                              <p className="text-slate-300 mt-0.5 font-medium">Develop a real-time study timer and planner interface utilizing composite hooks, context-shared states, and key reconciliations.</p>
+                            </div>
+                          </div>
+                        )}
+                        {roadmapWeek === 3 && (
+                          <div className="space-y-3 flex-1 animate-in fade-in duration-300">
+                            <div>
+                              <h5 className="text-white font-extrabold text-sm sm:text-base">⚙️ Week 3: Backend REST APIs & Databases</h5>
+                              <p className="text-slate-350 text-xs mt-1 leading-relaxed font-semibold">Build robust, secure servers to persist user data. Transition from client-side execution to server-side databases.</p>
+                            </div>
+                            <div className="space-y-2">
+                              <p className="text-[10px] text-slate-455 font-black uppercase tracking-wider">📍 Major Milestones</p>
+                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs font-semibold text-slate-300">
+                                <span className="flex items-center gap-1.5">🌟 Express REST API design</span>
+                                <span className="flex items-center gap-1.5">🌟 SQL vs NoSQL structures</span>
+                                <span className="flex items-center gap-1.5">🌟 Secure JWT authentication</span>
+                              </div>
+                            </div>
+                            <div className="pt-2 text-xs font-semibold">
+                              <span className="text-orange-400 font-extrabold">🛠️ Hands-on Project:</span>
+                              <p className="text-slate-300 mt-0.5 font-medium">Create a complete student management API featuring route guards, hashing, and relationship database persistence (MongoDB/PostgreSQL).</p>
+                            </div>
+                          </div>
+                        )}
+                        {roadmapWeek === 4 && (
+                          <div className="space-y-3 flex-1 animate-in fade-in duration-300">
+                            <div>
+                              <h5 className="text-white font-extrabold text-sm sm:text-base">⛓️ Week 4: State Libraries & Operations</h5>
+                              <p className="text-slate-350 text-xs mt-1 leading-relaxed font-semibold">Scale frontend state patterns and orchestrate deployment cycles. Package full-stack apps for production grades.</p>
+                            </div>
+                            <div className="space-y-2">
+                              <p className="text-[10px] text-slate-455 font-black uppercase tracking-wider">📍 Major Milestones</p>
+                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs font-semibold text-slate-300">
+                                <span className="flex items-center gap-1.5">🌟 Zustand / Redux state modeling</span>
+                                <span className="flex items-center gap-1.5">🌟 Production builds & assets</span>
+                                <span className="flex items-center gap-1.5">🌟 Continuous Integration / CD</span>
+                              </div>
+                            </div>
+                            <div className="pt-2 text-xs font-semibold">
+                              <span className="text-orange-400 font-extrabold">🛠️ Hands-on Project:</span>
+                              <p className="text-slate-300 mt-0.5 font-medium">Bundle full stack application using build optimizers, implement continuous deployment workflows, and release to hosting providers (Vercel/Render).</p>
+                            </div>
+                          </div>
+                        )}
+                        <div className="flex justify-end gap-2.5 pt-3 border-t border-white/5">
+                          <button
+                            onClick={() => toast.success("Simulated Roadmap PDF download initiated!")}
+                            className="px-3.5 py-2 rounded-xl bg-gradient-to-r from-violet-500 to-indigo-500 hover:brightness-110 text-white text-xs font-extrabold flex items-center gap-1.5 transition-all cursor-pointer shadow-md shadow-violet-500/10"
+                          >
+                            <Download className="w-3.5 h-3.5" />
+                            <span>Download Roadmap PDF</span>
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* ─── TAB: AI TUTOR ─── */}
+                {activeTab === 'tutor' && (
+                  <div className="max-w-3xl mx-auto animate-in fade-in duration-300">
+                    <div className="flex flex-wrap items-center justify-between gap-2 mb-4 pb-3 border-b border-white/5">
+                      <div className="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0">
+                        {[
+                          { id: 'physics', label: 'Special Relativity 🚀' },
+                          { id: 'mitosis', label: 'Mitosis 🔬' },
+                          { id: 'cryptography', label: 'Cryptography 🔑' }
+                        ].map((btn) => (
+                          <button
+                            key={btn.id}
+                            onClick={() => {
+                              setTutorTopic(btn.id as any);
+                              toast.info(`Tutor topic switched to ${btn.label}`);
+                            }}
+                            className={`px-3 py-1.5 rounded-xl border text-[10px] font-extrabold transition-all cursor-pointer whitespace-nowrap ${tutorTopic === btn.id ? 'bg-violet-500/10 border-violet-500 text-white' : 'bg-white/[0.02] border-white/[0.08] hover:bg-white/[0.04] text-slate-405 hover:text-white'}`}
+                          >
+                            {btn.label}
+                          </button>
+                        ))}
+                      </div>
+                      
+                      <div className="flex p-0.5 rounded-xl bg-white/5 border border-white/10">
+                        <button
+                          onClick={() => {
+                            setTutorLevel('analogy');
+                            toast.info("Tutor set to Simple Analogy mode.");
+                          }}
+                          className={`px-2.5 py-1 rounded-lg text-[9px] font-extrabold transition-all cursor-pointer ${tutorLevel === 'analogy' ? 'bg-white/10 text-white' : 'text-slate-400 hover:text-white'}`}
+                        >
+                          Analogy
+                        </button>
+                        <button
+                          onClick={() => {
+                            setTutorLevel('deep');
+                            toast.info("Tutor set to Deep Technical mode.");
+                          }}
+                          className={`px-2.5 py-1 rounded-lg text-[9px] font-extrabold transition-all cursor-pointer ${tutorLevel === 'deep' ? 'bg-white/10 text-white' : 'text-slate-400 hover:text-white'}`}
+                        >
+                          Technical
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Chat Messages */}
+                    <div className="bg-white/[0.02] border border-white/[0.08] rounded-2xl p-4 shadow-inner min-h-[200px] max-h-[220px] overflow-y-auto space-y-4">
+                      {tutorChat.map((msg, idx) => (
+                        <div key={idx} className={`flex ${msg.sender === 'user' ? 'justify-end' : 'justify-start'} animate-in fade-in duration-300`}>
+                          <div className={`max-w-[85%] rounded-2xl px-4 py-2.5 text-xs sm:text-sm font-semibold leading-relaxed shadow-sm ${msg.sender === 'user' ? 'bg-gradient-to-r from-violet-600 to-indigo-600 text-white rounded-tr-none' : 'bg-white/[0.05] border border-white/[0.08] text-slate-200 rounded-tl-none'}`}>
+                            <p className="font-bold mb-1 text-[9px] opacity-75 uppercase tracking-wide">{msg.sender === 'user' ? 'You' : 'AI Study Tutor'}</p>
+                            <p className="font-semibold whitespace-pre-line leading-relaxed">{msg.text}</p>
+                          </div>
+                        </div>
+                      ))}
+                      {isTutorTyping && (
+                        <div className="flex justify-start animate-pulse">
+                          <div className="bg-white/[0.05] border border-white/[0.08] text-slate-400 rounded-2xl rounded-tl-none px-4 py-2.5 text-xs font-semibold flex items-center gap-1.5">
+                            <span className="w-1.5 h-1.5 rounded-full bg-violet-400 animate-bounce" style={{ animationDelay: '0ms' }} />
+                            <span className="w-1.5 h-1.5 rounded-full bg-violet-400 animate-bounce" style={{ animationDelay: '150ms' }} />
+                            <span className="w-1.5 h-1.5 rounded-full bg-violet-400 animate-bounce" style={{ animationDelay: '300ms' }} />
+                            <span className="text-[10px] text-slate-400 font-bold ml-1">AI Tutor is typing...</span>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Input form */}
+                    <form onSubmit={handleSendTutorMessage} className="mt-4 flex gap-2">
+                      <input
+                        type="text"
+                        value={tutorInput}
+                        onChange={(e) => setTutorInput(e.target.value)}
+                        placeholder="Ask a follow-up doubt or question..."
+                        className="flex-1 px-4 py-2.5 rounded-xl bg-white/5 border border-white/10 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-violet-500/60 font-semibold"
+                      />
+                      <button
+                        type="submit"
+                        disabled={!tutorInput.trim() || isTutorTyping}
+                        className="p-2.5 rounded-xl bg-gradient-to-r from-violet-500 to-indigo-500 hover:brightness-110 text-white cursor-pointer disabled:opacity-50 transition-all flex items-center justify-center flex-shrink-0"
+                      >
+                        <Send className="w-4 h-4 text-white" />
+                      </button>
+                    </form>
+                  </div>
+                )}
+
+                {/* ─── TAB: SMART WORKSPACE ─── */}
+                {activeTab === 'workspace' && (
+                  <div className="animate-in fade-in duration-300">
+                    <div className="flex items-center justify-between mb-4 pb-2 border-b border-white/5">
+                      <div>
+                        <span className="text-white font-extrabold text-sm sm:text-base block">🏢 My Study Workspace</span>
+                        <span className="text-[10px] text-slate-400 font-semibold block mt-0.5">Core academic productivity hub</span>
+                      </div>
+                      
+                      {/* Sub tab switcher */}
+                      <div className="flex bg-white/[0.08] p-0.5 rounded-xl border border-white/[0.08]">
+                        {[
+                          { id: 'planner', label: 'Planner', icon: Brain },
+                          { id: 'pomodoro', label: 'Timer', icon: Timer },
+                          { id: 'analytics', label: 'Stats', icon: BarChart3 }
+                        ].map(sub => (
+                          <button
+                            key={sub.id}
+                            onClick={() => {
+                              setWorkspaceSubTab(sub.id as any);
+                              toast.info(`Switched workspace to ${sub.label}`);
+                            }}
+                            className={`px-3 py-1 rounded-lg text-[9px] font-extrabold transition-all cursor-pointer flex items-center gap-1 ${workspaceSubTab === sub.id ? 'bg-white/10 text-white shadow-inner' : 'text-slate-400 hover:text-white'}`}
+                          >
+                            <sub.icon className="w-3 h-3" />
+                            <span>{sub.label}</span>
+                          </button>
                         ))}
                       </div>
                     </div>
 
-                    {/* Streak & Achievements stats */}
-                    <div className="space-y-4">
-                      {/* Daily streak */}
-                      <div className="rounded-2xl p-4 bg-white/[0.04] border border-white/[0.08] flex items-center justify-between">
-                        <div>
-                          <p className="text-[10px] text-slate-400 font-bold tracking-wider uppercase">Active Streak</p>
-                          <p className="text-xl font-black text-orange-400 lp-font-display mt-1">14 Days 🔥</p>
-                          <p className="text-[10px] text-slate-300 font-semibold mt-0.5">Top 5% of students this week</p>
+                    {/* Sub Contents */}
+                    {workspaceSubTab === 'planner' && (
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 animate-in duration-300">
+                        {/* Left: Task List */}
+                        <div className="md:col-span-2 rounded-2xl p-4 bg-white/[0.03] border border-white/[0.08] shadow-inner">
+                          <div className="flex items-center justify-between mb-3.5">
+                            <div>
+                              <span className="text-white font-extrabold text-xs sm:text-sm block">Today's Tasks</span>
+                              <span className="text-slate-450 text-[10px] font-semibold">Prioritized automatically by AI</span>
+                            </div>
+                            <button
+                              onClick={handleAiReschedule}
+                              disabled={rescheduling}
+                              className="lp-btn-primary px-3 py-1.5 rounded-lg text-[10px] font-bold flex items-center gap-1 disabled:opacity-50"
+                            >
+                              <Sparkles className={`w-3 h-3 ${rescheduling ? 'animate-spin' : ''}`} />
+                              <span>{rescheduling ? 'Optimizing...' : 'Reschedule with AI'}</span>
+                            </button>
+                          </div>
+                          
+                          <div className="space-y-2.5">
+                            {mockTasks.map((task) => (
+                              <div key={task.id} className="flex items-center gap-3 py-2 px-3 rounded-xl bg-white/[0.03] border border-white/[0.08] hover:bg-white/[0.06] transition-all">
+                                <div className={`w-4 h-4 rounded flex items-center justify-center flex-shrink-0 ${task.done ? "bg-emerald-500" : "border-2 border-white/40"}`}>
+                                  {task.done && <Check className="w-2.5 h-2.5 text-white" />}
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                  <p className={`text-xs font-bold truncate ${task.done ? "text-slate-500 line-through font-medium" : "text-white"}`}>{task.t}</p>
+                                  <div className="flex items-center gap-2 mt-0.5">
+                                    <span className="text-slate-400 text-[9px] font-bold">{task.d}</span>
+                                    <span className="text-slate-500 text-[8px]">•</span>
+                                    <span className="text-slate-400 text-[9px] font-bold">{task.time}</span>
+                                  </div>
+                                </div>
+                                <span className={`text-[9px] font-black px-2 py-0.5 rounded-full flex-shrink-0 uppercase border ${task.p === "high" ? "bg-red-500/20 text-red-300 border-red-500/30" : task.p === "med" ? "bg-amber-500/20 text-amber-300 border-amber-500/30" : "bg-slate-500/20 text-slate-300 border-slate-500/30"}`}>
+                                  {task.p}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
                         </div>
-                        <div className="w-10 h-10 rounded-full bg-orange-500/10 flex items-center justify-center border border-orange-500/20">
-                          <Flame className="w-5 h-5 text-orange-400" />
-                        </div>
-                      </div>
 
-                      {/* Productivity score */}
-                      <div className="rounded-2xl p-4 bg-white/[0.04] border border-white/[0.08]">
-                        <div className="flex justify-between items-center mb-2">
-                          <p className="text-[10px] text-slate-400 font-bold tracking-wider uppercase">Weekly Target</p>
-                          <span className="text-xs text-white font-extrabold">85% Complete</span>
+                        {/* Right: AI Assistant suggestions */}
+                        <div className="rounded-2xl p-4 bg-white/[0.03] border border-white/[0.08] flex flex-col justify-between shadow-inner">
+                          <div>
+                            <div className="flex items-center gap-2 mb-3">
+                              <div className="w-7 h-7 rounded-lg bg-violet-500/20 flex items-center justify-center border border-violet-500/30">
+                                <Brain className="w-4 h-4 text-violet-400" />
+                              </div>
+                              <div>
+                                <p className="text-white font-extrabold text-xs">AI Study Coach</p>
+                                <p className="text-emerald-400 text-[9px] flex items-center gap-1 font-semibold"><span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" /> Active</p>
+                              </div>
+                            </div>
+                            
+                            <div className="rounded-xl p-3 bg-violet-500/[0.08] border border-violet-500/30 mb-3 min-h-[90px] flex flex-col justify-center">
+                              <p className="text-xs text-violet-105 leading-relaxed italic font-semibold">
+                                "{aiMessage}"
+                              </p>
+                            </div>
+                          </div>
+
+                          <div className="space-y-2">
+                            <div className="text-[9px] text-slate-450 font-black tracking-wider uppercase">Auto-Suggestions</div>
+                            <div className="p-2 rounded-xl bg-white/[0.03] border border-white/[0.08] hover:bg-white/[0.06] transition-colors cursor-pointer text-[10px] text-slate-200 font-semibold" onClick={handleAiReschedule}>
+                              ⚡ Physics exam date updated. Let's reschedule.
+                            </div>
+                            <div className="p-2 rounded-xl bg-white/[0.03] border border-white/[0.08] hover:bg-white/[0.06] transition-colors cursor-pointer text-[10px] text-slate-200 font-semibold" onClick={() => setWorkspaceSubTab('pomodoro')}>
+                              🍅 Set a 25-min Pomodoro for thermodynamics.
+                            </div>
+                          </div>
                         </div>
-                        <div className="h-2 rounded-full bg-white/10 overflow-hidden">
-                          <div className="h-full rounded-full bg-gradient-to-r from-violet-500 to-indigo-500" style={{ width: "85%" }} />
-                        </div>
-                        <p className="text-[10px] text-slate-300 font-medium mt-2">Awesome! You logged 18 focus hours this week.</p>
                       </div>
-                    </div>
+                    )}
+
+                    {workspaceSubTab === 'pomodoro' && (
+                      <div className="flex flex-col md:flex-row items-center justify-center gap-8 max-w-3xl mx-auto py-3 animate-in duration-300">
+                        {/* Left: Clock */}
+                        <div className="relative w-44 h-44 flex items-center justify-center flex-shrink-0">
+                          <svg className="absolute w-full h-full transform -rotate-90">
+                            <circle cx="88" cy="88" r="76" stroke="rgba(255,255,255,0.06)" strokeWidth="6" fill="transparent" />
+                            <motion.circle
+                              cx="88" cy="88" r="76" stroke="url(#timerGradient)" strokeWidth="6" fill="transparent"
+                              strokeDasharray={2 * Math.PI * 76}
+                              animate={{ strokeDashoffset: (2 * Math.PI * 76) * (1 - timerSeconds / 1500) }}
+                              transition={{ duration: 1, ease: "linear" }}
+                            />
+                            <defs>
+                              <linearGradient id="timerGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                                <stop offset="0%" stopColor="#8b5cf6" /><stop offset="100%" stopColor="#ec4899" />
+                              </linearGradient>
+                            </defs>
+                          </svg>
+                          <div className="text-center z-10">
+                            <div className="text-3xl font-black tracking-tight text-white lp-font-display">
+                              {formatTime(timerSeconds)}
+                            </div>
+                            <p className="text-[9px] font-black text-pink-400 tracking-widest uppercase mt-0.5">Focus Session</p>
+                          </div>
+                        </div>
+
+                        {/* Right: Info & Controls */}
+                        <div className="space-y-3 text-center md:text-left flex-1">
+                          <div>
+                            <h4 className="text-lg font-extrabold text-white lp-font-display">Focus Timer</h4>
+                            <p className="text-[11px] text-slate-350 mt-0.5 max-w-xs font-semibold leading-relaxed">Work in highly structured blocks. Start/pause timer below to test interactive focus modes.</p>
+                          </div>
+
+                          <div className="flex flex-wrap items-center justify-center md:justify-start gap-2.5">
+                            <button
+                              onClick={() => {
+                                setTimerIsRunning(!timerIsRunning);
+                                toast.info(timerIsRunning ? "Timer Paused" : "Timer Started");
+                              }}
+                              className="px-5 py-2 rounded-xl bg-gradient-to-r from-violet-500 to-pink-500 text-white font-extrabold text-xs hover:brightness-110 flex items-center gap-1.5 transition-all cursor-pointer shadow-md shadow-pink-500/10"
+                            >
+                              {timerIsRunning ? (
+                                <>
+                                  <div className="w-2.5 h-2.5 bg-white rounded-sm animate-pulse" />
+                                  <span>Pause Timer</span>
+                                </>
+                              ) : (
+                                <>
+                                  <Play className="w-3 h-3 text-white fill-white" />
+                                  <span>Start Timer</span>
+                                </>
+                              )}
+                            </button>
+                            
+                            <button
+                              onClick={() => { setTimerIsRunning(false); setTimerSeconds(1500); toast.info("Timer Reset"); }}
+                              className="px-3.5 py-2 rounded-xl bg-white/5 border border-white/10 text-white text-[11px] font-bold hover:bg-white/10 transition-all cursor-pointer"
+                            >
+                              Reset
+                            </button>
+                          </div>
+
+                          <div className="grid grid-cols-2 gap-3 pt-1">
+                            <div className="p-2.5 rounded-xl bg-white/[0.03] border border-white/[0.08] text-center shadow-inner">
+                              <p className="text-[9px] text-slate-455 font-black tracking-wider uppercase">Interval</p>
+                              <p className="text-xs font-black text-white mt-0.5">25 min</p>
+                            </div>
+                            <div className="p-2.5 rounded-xl bg-white/[0.03] border border-white/[0.08] text-center shadow-inner">
+                              <p className="text-[9px] text-slate-455 font-black tracking-wider uppercase">Break</p>
+                              <p className="text-xs font-black text-white mt-0.5">5 min</p>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {workspaceSubTab === 'analytics' && (
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 animate-in duration-300">
+                        {/* Weekly chart */}
+                        <div className="md:col-span-2 rounded-2xl p-4 bg-white/[0.03] border border-white/[0.08] shadow-inner">
+                          <div className="flex items-center justify-between mb-3.5">
+                            <div>
+                              <span className="text-white font-extrabold text-xs sm:text-sm block">Study Distribution</span>
+                              <span className="text-slate-450 text-[10px] font-semibold">Minutes logged per subject</span>
+                            </div>
+                            <span className="text-emerald-450 text-[10px] font-black">+18% vs last week</span>
+                          </div>
+
+                          <div className="h-36 flex items-end gap-3 sm:gap-5 pt-3 pb-1 px-1">
+                            {[
+                              { label: "Mon", val: 75, color: "bg-violet-500" },
+                              { label: "Tue", val: 95, color: "bg-indigo-500" },
+                              { label: "Wed", val: 55, color: "bg-cyan-500" },
+                              { label: "Thu", val: 120, color: "bg-pink-500" },
+                              { label: "Fri", val: 80, color: "bg-rose-500" },
+                              { label: "Sat", val: 40, color: "bg-emerald-500" },
+                              { label: "Sun", val: 65, color: "bg-amber-500" },
+                            ].map((bar, i) => (
+                              <div key={i} className="flex-1 flex flex-col items-center gap-1.5 h-full justify-end group">
+                                <div className="text-[8px] text-slate-350 opacity-0 group-hover:opacity-100 transition-opacity font-bold">{bar.val}m</div>
+                                <motion.div
+                                  initial={{ height: 0 }} animate={{ height: `${(bar.val / 120) * 100}%` }}
+                                  transition={{ delay: i * 0.04, duration: 0.7, ease: "easeOut" }}
+                                  className={`w-full rounded-t-md ${bar.color} hover:brightness-110 shadow-md`}
+                                />
+                                <span className="text-[9px] text-slate-400 font-bold">{bar.label}</span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+
+                        {/* Side achievements */}
+                        <div className="space-y-3.5">
+                          <div className="rounded-2xl p-4 bg-white/[0.03] border border-white/[0.08] flex items-center justify-between shadow-inner">
+                            <div>
+                              <p className="text-[9px] text-slate-455 font-black tracking-wider uppercase">Active Streak</p>
+                              <p className="text-lg font-black text-orange-400 lp-font-display mt-0.5">14 Days 🔥</p>
+                              <p className="text-[9px] text-slate-400 font-semibold mt-0.5">Top 5% of ambitious learners</p>
+                            </div>
+                            <div className="w-8 h-8 rounded-full bg-orange-500/10 flex items-center justify-center border border-orange-500/20 flex-shrink-0">
+                              <Flame className="w-4 h-4 text-orange-400" />
+                            </div>
+                          </div>
+
+                          <div className="rounded-2xl p-4 bg-white/[0.03] border border-white/[0.08] shadow-inner">
+                            <div className="flex justify-between items-center mb-1.5">
+                              <p className="text-[9px] text-slate-455 font-black tracking-wider uppercase">Weekly Target</p>
+                              <span className="text-[10px] text-white font-black">85% Complete</span>
+                            </div>
+                            <div className="h-1.5 rounded-full bg-white/10 overflow-hidden">
+                              <div className="h-full rounded-full bg-gradient-to-r from-violet-500 to-indigo-500" style={{ width: "85%" }} />
+                            </div>
+                            <p className="text-[9.5px] text-slate-450 font-semibold mt-2">Awesome! 18 focus hours logged this week.</p>
+                          </div>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
@@ -942,7 +1466,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onGetStarted }) => {
                 </div>
                 <div>
                   <p className="text-white text-xs font-semibold">Task completed!</p>
-                  <p className="text-emerald-400 text-xs">+25 XP earned</p>
+                  <p className="text-emerald-400 text-xs font-medium">+25 XP earned</p>
                 </div>
               </div>
             </motion.div>
@@ -958,7 +1482,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onGetStarted }) => {
                 <Brain className="w-5 h-5 text-violet-400" />
                 <div>
                   <p className="text-white text-xs font-semibold">AI rescheduled</p>
-                  <p className="text-violet-400 text-xs">3 tasks optimized</p>
+                  <p className="text-violet-400 text-xs font-medium">3 tasks optimized</p>
                 </div>
               </div>
             </motion.div>
