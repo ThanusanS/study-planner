@@ -31,6 +31,9 @@ import {
   Trophy,
   Lightbulb,
   LayoutDashboard,
+  FileText,
+  Map,
+  HelpCircle,
 } from "lucide-react";
 import { LogoFull } from "./branding/LogoFull";
 
@@ -197,7 +200,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onGetStarted }) => {
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
 
-  const navLinks = ["Features", "How it works", "Testimonials", "FAQ"];
+  const navLinks = ["Features", "AI Tools", "How it works", "Testimonials", "FAQ"];
 
   const scrollToSection = (id: string) => {
     const element = document.getElementById(id);
@@ -216,6 +219,42 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onGetStarted }) => {
       glow: "shadow-violet-500/20",
       highlight: true,
       points: ["Smart deadline prediction", "Auto-priority sorting", "Real-time sync across devices"],
+    },
+    {
+      icon: Sparkles,
+      title: "AI Quiz Studio",
+      desc: "Generate exam-ready quizzes with MCQ, short answer, and mixed modes. Evaluate answers with AI-powered teacher-style feedback and detailed scoring.",
+      gradient: "from-indigo-500 to-blue-600",
+      glow: "shadow-indigo-500/20",
+      highlight: true,
+      points: ["MCQ, Short & Mixed modes", "AI Answer Evaluation", "Quiz History & PDF Export"],
+    },
+    {
+      icon: FileText,
+      title: "AI Notes Generator",
+      desc: "Create short revision notes or detailed study notes from any topic. Perfect for last-minute preparation or deep concept understanding.",
+      gradient: "from-teal-500 to-emerald-600",
+      glow: "shadow-teal-500/20",
+      highlight: true,
+      points: ["Short Notes (Quick Revision)", "Full Notes (Deep Learning)", "Beautiful PDF Download"],
+    },
+    {
+      icon: Map,
+      title: "AI Roadmap Generator",
+      desc: "Get phase-based overviews or week-by-week study plans for any learning goal. Your personalized path to mastering any subject.",
+      gradient: "from-orange-500 to-amber-600",
+      glow: "shadow-orange-500/20",
+      highlight: true,
+      points: ["Quick Phase-based Roadmap", "Detailed Week-by-Week Plan", "Milestone Tracking"],
+    },
+    {
+      icon: GraduationCap,
+      title: "AI Tutor (Explain Mode)",
+      desc: "Get crystal-clear explanations with simple analogies, comprehensive deep dives, or instant doubt solving — like having a private tutor 24/7.",
+      gradient: "from-rose-500 to-pink-600",
+      glow: "shadow-rose-500/20",
+      highlight: true,
+      points: ["Simple Explain with Analogies", "Deep Explain with Examples", "Instant Doubt Solver"],
     },
     {
       icon: Timer,
@@ -237,24 +276,8 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onGetStarted }) => {
       icon: Calendar,
       title: "Exam Countdown",
       desc: "Never miss a deadline. Smart reminders adapt to your prep schedule automatically.",
-      gradient: "from-orange-500 to-amber-600",
-      glow: "shadow-orange-500/20",
-      highlight: false,
-    },
-    {
-      icon: Flame,
-      title: "Study Streaks",
-      desc: "Daily habit building with streak tracking to keep you consistently motivated.",
-      gradient: "from-red-500 to-orange-600",
-      glow: "shadow-red-500/20",
-      highlight: false,
-    },
-    {
-      icon: Lightbulb,
-      title: "AI Quiz Generator",
-      desc: "Generate custom practice quizzes from your subjects and materials using cutting-edge AI.",
-      gradient: "from-cyan-500 to-blue-600",
-      glow: "shadow-cyan-500/20",
+      gradient: "from-amber-500 to-yellow-600",
+      glow: "shadow-amber-500/20",
       highlight: false,
     },
   ];
@@ -267,20 +290,20 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onGetStarted }) => {
   ];
 
   const testimonials = [
-    { name: "Sarah C.", role: "CS Undergraduate", text: "The AI rescheduling is incredibly useful when deadlines stack up. Instead of spending 30 minutes moving tasks around, I just click a button and let it prioritize my week.", rating: 5, avatar: "SC", gradient: "from-violet-400 to-purple-600" },
-    { name: "Marcus J.", role: "Engineering Student", text: "Having the Pomodoro timer and task list on the exact same dashboard keeps me focused. Clean, fast, and does exactly what it promises.", rating: 5, avatar: "MJ", gradient: "from-blue-400 to-cyan-600" },
-    { name: "Priya P.", role: "Law Student", text: "I can organize all my subjects and set countdown trackers for my final exams. The layout is premium, fast, and completely free.", rating: 5, avatar: "PP", gradient: "from-pink-400 to-rose-600" },
-    { name: "Alex R.", role: "High School Senior", text: "This replaced three different tools for me. I keep my calendar, focus timer, and daily tasks in one unified space. Love the clean neon aesthetic.", rating: 5, avatar: "AR", gradient: "from-emerald-400 to-teal-600" },
-    { name: "Yuki T.", role: "Pre-med Student", text: "Simple, easy to navigate, and extremely fast. It's refreshing to use an academic tool that doesn't push subscription pop-ups every five minutes.", rating: 5, avatar: "YT", gradient: "from-orange-400 to-amber-600" },
+    { name: "Sarah C.", role: "CS Undergraduate", text: "The AI Quiz Studio is a game-changer! I generate practice quizzes before every exam and the evaluation feedback is incredibly detailed — like having a real teacher grade my work.", rating: 5, avatar: "SC", gradient: "from-violet-400 to-purple-600" },
+    { name: "Marcus J.", role: "Engineering Student", text: "AI Roadmap Generator planned my entire semester learning path in seconds. The week-by-week breakdown with milestones keeps me on track and motivated.", rating: 5, avatar: "MJ", gradient: "from-blue-400 to-cyan-600" },
+    { name: "Priya P.", role: "Law Student", text: "The AI Notes Generator saves me hours. I get short revision notes for quick reviews before class and detailed notes for deep study sessions — all in beautiful PDF format.", rating: 5, avatar: "PP", gradient: "from-pink-400 to-rose-600" },
+    { name: "Alex R.", role: "High School Senior", text: "AI Tutor's Explain Mode is like having a private tutor 24/7. The simple explanations with analogies make even complex physics concepts click instantly.", rating: 5, avatar: "AR", gradient: "from-emerald-400 to-teal-600" },
+    { name: "Yuki T.", role: "Pre-med Student", text: "I use all 4 AI tools daily — Quiz for testing, Notes for revision, Roadmap for planning, and Tutor for doubt-solving. This platform replaced 5 different apps for me.", rating: 5, avatar: "YT", gradient: "from-orange-400 to-amber-600" },
   ];
 
   const faqItems = [
-    { q: "Is Study Planner really free?", a: "Yes — 100% free, forever. No credit card required, no hidden fees, no premium paywall. All features including AI quiz generation, analytics, and cloud sync are completely free for all students." },
-    { q: "How does the AI task manager work?", a: "Our AI analyzes your deadlines, subject difficulty, available study hours, and historical performance to create an optimized study schedule that adapts in real-time as your priorities change." },
-    { q: "Can I use it on my phone?", a: "Absolutely! Study Planner is fully responsive and works beautifully on all devices — desktop, tablet, and mobile. Your data syncs instantly across all your devices via cloud." },
-    { q: "How does the AI quiz generator work?", a: "Simply select a subject and topic, and our AI generates custom practice questions tailored to your curriculum. It supports multiple-choice, short answer, and essay-style questions." },
-    { q: "Is my data safe?", a: "Your data is encrypted end-to-end and stored securely. We never sell your personal information to third parties. You can export or delete your data at any time." },
-    { q: "What makes this different from Google Calendar?", a: "Unlike generic calendars, Study Planner is built specifically for students. It understands academic workflows — subjects, assignments, exams — and uses AI to actively optimize your study schedule, not just display it." },
+    { q: "What AI tools are included?", a: "Study Planner includes 4 powerful AI tools: AI Quiz Studio (generate & evaluate quizzes), AI Notes Generator (short revision & full detailed notes), AI Roadmap Generator (phase-based & week-by-week plans), and AI Tutor Explain Mode (simple explanations, deep dives & doubt solving). All tools include PDF download and history." },
+    { q: "How do AI Credits work?", a: "AI Credits are a shared pool used across all AI tools. Simple/quick modes cost 1 credit, detailed/deep modes cost 2 credits. Free plan includes 10 credits/month, Pro plan has 500 credits/month, and Premium has 3,000 credits/month. Credits reset monthly on your renewal date." },
+    { q: "Can I download my AI-generated content?", a: "Yes! Every AI tool includes a beautiful PDF download feature. Quizzes, notes, roadmaps, and tutor explanations can all be exported as professionally formatted, color-coded PDF documents perfect for offline study and printing." },
+    { q: "Is my data saved?", a: "Absolutely. All AI-generated content is automatically saved to your history in Appwrite cloud. You can view, edit, delete, and re-download any saved quiz, note, roadmap, or explanation anytime. Your data syncs across all devices." },
+    { q: "Can I use it on my phone?", a: "Yes! Study Planner is fully responsive and works beautifully on all devices — desktop, tablet, and mobile. Your data syncs instantly across all your devices via cloud." },
+    { q: "What makes this different from ChatGPT?", a: "Unlike generic AI chatbots, Study Planner is purpose-built for students. Each AI tool has specialized prompts optimized for academic output — structured quizzes with answer evaluation, formatted study notes, milestone-tracked roadmaps, and pedagogically-designed explanations. Plus, everything saves to your history with beautiful PDF export." },
   ];
 
   const stats = [
@@ -514,7 +537,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onGetStarted }) => {
             >
               <div className="lp-badge-pill">
                 <Sparkles className="w-4 h-4 text-violet-400" />
-                <span>AI-powered academic platform for students</span>
+                <span>4 AI Study Tools • Quiz • Notes • Roadmap • Tutor</span>
                 <span className="bg-violet-500/30 text-violet-300 text-xs font-semibold px-2 py-0.5 rounded-full">NEW</span>
               </div>
             </motion.div>
@@ -538,7 +561,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onGetStarted }) => {
               transition={{ duration: 0.6, delay: 0.2 }}
               className="text-lg sm:text-xl md:text-2xl text-slate-200 max-w-2xl mx-auto leading-relaxed mb-7"
             >
-              The all-in-one academic platform with AI task management, Pomodoro focus sessions, and intelligent analytics — completely free.
+              The all-in-one AI study platform — Quiz Generator, Notes Builder, Roadmap Planner, AI Tutor, Pomodoro Timer, and smart analytics. Everything a student needs.
             </motion.p>
 
             {/* CTA Row */}
@@ -1097,13 +1120,13 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onGetStarted }) => {
               <span className="lp-gradient-text">excel academically</span>
             </h2>
             <p className="text-slate-400 text-base sm:text-lg max-w-2xl mx-auto">
-              From intelligent task management to AI-generated quizzes, every feature is crafted to maximize your academic performance.
+              4 powerful AI study tools, smart task management, focus timer, and analytics — all crafted to maximize your academic performance.
             </p>
           </motion.div>
 
           {/* Bento Grid */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-            {/* Large hero feature */}
+            {/* Large hero feature — AI Task Manager */}
             <motion.div
               initial={{ opacity: 0, y: 30 }}
               whileInView={{ opacity: 1, y: 0 }}
@@ -1119,9 +1142,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onGetStarted }) => {
                   boxShadow: "0 0 60px rgba(124,58,237,0.1)",
                 }}
               >
-                {/* BG decorative */}
                 <div className="absolute top-0 right-0 w-64 h-64 rounded-full lp-pulse-ring" style={{ background: "radial-gradient(circle, rgba(124,58,237,0.2) 0%, transparent 70%)", transform: "translate(30%, -30%)" }} />
-
                 <div className="relative z-10 h-full flex flex-col">
                   <div className="w-14 h-14 rounded-2xl flex items-center justify-center mb-6" style={{ background: "linear-gradient(135deg, #7c3aed, #4f46e5)" }}>
                     <Brain className="w-7 h-7 text-white" />
@@ -1131,7 +1152,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onGetStarted }) => {
                   </div>
                   <h3 className="text-3xl sm:text-4xl font-black text-white mb-4 lp-font-display">Smart Task Manager</h3>
                   <p className="text-slate-400 text-base leading-relaxed mb-8 max-w-md">
-                    Our AI continuously analyzes your workload, deadlines, and study patterns to intelligently prioritize tasks — so you always work on what matters most, when it matters most.
+                    Our AI continuously analyzes your workload, deadlines, and study patterns to intelligently prioritize tasks — so you always work on what matters most.
                   </p>
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-auto">
                     {["Intelligent scheduling", "Priority management", "Deadline prediction", "Cross-device sync", "Habit learning", "Smart reminders"].map((f, i) => (
@@ -1147,8 +1168,8 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onGetStarted }) => {
               </div>
             </motion.div>
 
-            {/* Smaller features */}
-            {features.slice(1).map((feat, i) => (
+            {/* Smaller utility features: Pomodoro, Analytics, Exam Countdown */}
+            {features.filter(f => !f.highlight).map((feat, i) => (
               <motion.div
                 key={i}
                 initial={{ opacity: 0, y: 30 }}
@@ -1174,6 +1195,121 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onGetStarted }) => {
               </motion.div>
             ))}
           </div>
+        </div>
+      </section>
+
+      {/* ─── AI TOOLS SHOWCASE ─────────────────────────────────────────────── */}
+      <section id="ai-tools" className="relative z-10 py-16 sm:py-24 px-4">
+        <div className="max-w-7xl mx-auto">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            className="text-center mb-16"
+          >
+            <div className="lp-section-tag mb-6">
+              <Sparkles className="w-3.5 h-3.5" /> AI Tools
+            </div>
+            <h2 className="text-3xl sm:text-5xl md:text-6xl font-black text-white mb-6 lp-font-display">
+              4 AI Study Tools,
+              <br />
+              <span className="lp-gradient-text">One Platform</span>
+            </h2>
+            <p className="text-slate-400 text-base sm:text-lg max-w-2xl mx-auto">
+              Every tool includes cloud history, PDF export, and is powered by cutting-edge AI — purpose-built for students.
+            </p>
+          </motion.div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {features.filter(f => f.highlight && f.points).slice(1).map((tool, i) => {
+              const gradientMap: Record<number, string> = {
+                0: "rgba(99,102,241,0.15), rgba(59,130,246,0.08)",
+                1: "rgba(20,184,166,0.15), rgba(16,185,129,0.08)",
+                2: "rgba(249,115,22,0.15), rgba(245,158,11,0.08)",
+                3: "rgba(244,63,94,0.15), rgba(236,72,153,0.08)",
+              };
+              const borderMap: Record<number, string> = {
+                0: "rgba(99,102,241,0.35)",
+                1: "rgba(20,184,166,0.35)",
+                2: "rgba(249,115,22,0.35)",
+                3: "rgba(244,63,94,0.35)",
+              };
+              const glowMap: Record<number, string> = {
+                0: "rgba(99,102,241,0.12)",
+                1: "rgba(20,184,166,0.12)",
+                2: "rgba(249,115,22,0.12)",
+                3: "rgba(244,63,94,0.12)",
+              };
+
+              return (
+                <motion.div
+                  key={i}
+                  initial={{ opacity: 0, y: 30 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  viewport={{ once: true }}
+                  transition={{ delay: i * 0.12 }}
+                  className="lp-card-hover group"
+                >
+                  <div
+                    className="h-full rounded-3xl p-6 sm:p-8 relative overflow-hidden"
+                    style={{
+                      background: `linear-gradient(135deg, ${gradientMap[i]})`,
+                      border: `1px solid ${borderMap[i]}`,
+                      boxShadow: `0 0 50px ${glowMap[i]}`,
+                    }}
+                  >
+                    <div className="absolute top-0 right-0 w-48 h-48 rounded-full opacity-20 lp-pulse-ring" style={{ background: `radial-gradient(circle, ${borderMap[i]} 0%, transparent 70%)`, transform: "translate(30%, -30%)" }} />
+
+                    <div className="relative z-10">
+                      <div className="flex items-start gap-4 mb-5">
+                        <div className={`w-14 h-14 rounded-2xl bg-gradient-to-br ${tool.gradient} flex items-center justify-center shadow-lg flex-shrink-0`}>
+                          <tool.icon className="w-7 h-7 text-white" />
+                        </div>
+                        <div>
+                          <h3 className="text-xl sm:text-2xl font-black text-white lp-font-display">{tool.title}</h3>
+                          <p className="text-slate-400 text-sm leading-relaxed mt-1">{tool.desc}</p>
+                        </div>
+                      </div>
+
+                      <div className="space-y-2.5 mt-4">
+                        {tool.points?.map((point, pi) => (
+                          <div key={pi} className="flex items-center gap-3">
+                            <div className={`w-6 h-6 rounded-full bg-gradient-to-br ${tool.gradient} flex items-center justify-center flex-shrink-0 shadow-md`}>
+                              <Check className="w-3.5 h-3.5 text-white" />
+                            </div>
+                            <span className="text-sm text-slate-300 font-medium">{point}</span>
+                          </div>
+                        ))}
+                      </div>
+
+                      <div className="mt-6 flex items-center gap-3 flex-wrap">
+                        <span className="px-3 py-1 rounded-full text-[11px] font-bold uppercase tracking-wider bg-white/5 border border-white/10 text-slate-400">Cloud History</span>
+                        <span className="px-3 py-1 rounded-full text-[11px] font-bold uppercase tracking-wider bg-white/5 border border-white/10 text-slate-400">PDF Export</span>
+                        <span className="px-3 py-1 rounded-full text-[11px] font-bold uppercase tracking-wider bg-white/5 border border-white/10 text-slate-400">AI Powered</span>
+                      </div>
+                    </div>
+                  </div>
+                </motion.div>
+              );
+            })}
+          </div>
+
+          {/* CTA beneath AI tools */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            className="text-center mt-12"
+          >
+            <button
+              onClick={onGetStarted}
+              className="lp-btn-primary px-8 py-4 rounded-2xl text-white text-lg font-semibold inline-flex items-center gap-3 group"
+            >
+              Try All AI Tools Free
+              <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
+            </button>
+            <p className="text-slate-500 text-sm mt-3">10 free AI credits • No credit card required</p>
+          </motion.div>
         </div>
       </section>
 
