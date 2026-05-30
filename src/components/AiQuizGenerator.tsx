@@ -39,6 +39,8 @@ import {
   Pencil,
   Check,
   X,
+  Eye,
+  ClipboardCheck,
 } from "lucide-react";
 import { evaluateQuiz, generateQuiz } from "../services/aiQuizService";
 import databaseService, { QuizHistory } from "../services/databaseService";
@@ -66,6 +68,8 @@ export const AiQuizGenerator: React.FC = () => {
   const [quizzes, setQuizzes] = useState<QuizHistory[]>([]);
   const [quizzesLoading, setQuizzesLoading] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
+
+  // History: edit state
   const [editingQuizId, setEditingQuizId] = useState<string | null>(null);
   const [editTopic, setEditTopic] = useState("");
   const [editDifficulty, setEditDifficulty] = useState("");
@@ -73,11 +77,16 @@ export const AiQuizGenerator: React.FC = () => {
   const [editQuestionType, setEditQuestionType] =
     useState<QuizHistory["questionType"]>("mixed");
   const [editQuizContent, setEditQuizContent] = useState("");
+
+  // History: delete state
   const [quizPendingDelete, setQuizPendingDelete] =
     useState<QuizHistory | null>(null);
   const [deleteLoading, setDeleteLoading] = useState(false);
 
-  // Load quizzes and active plan on component mount
+  // History: expand state
+  const [expandedQuizId, setExpandedQuizId] = useState<string | null>(null);
+
+  // ── Load data ──
   useEffect(() => {
     const resolvedUserId = user?.$id || (user as any)?.id || user?.id;
     if (resolvedUserId) {
@@ -113,16 +122,18 @@ export const AiQuizGenerator: React.FC = () => {
     const normalized = input.trim().toLowerCase();
     if (normalized === "beginner" || normalized === "easy") return "easy";
     if (normalized === "advanced" || normalized === "hard") return "hard";
-    return "medium"; // "intermediate" or any other value defaults to medium
+    return "medium";
   };
 
+  // ── Save ──
   const saveQuiz = async (quizContent?: string) => {
     const contentToSave = quizContent || result;
-    if (!user?.id || !contentToSave) return;
+    const resolvedUserId = user?.$id || (user as any)?.id || user?.id;
+    if (!resolvedUserId || !contentToSave) return;
 
     try {
       const newQuiz: Omit<QuizHistory, "$id"> = {
-        userId: user.id,
+        userId: resolvedUserId,
         topic: topic.trim(),
         difficulty: mapDifficulty(difficulty),
         questionCount,
@@ -139,12 +150,14 @@ export const AiQuizGenerator: React.FC = () => {
       await loadQuizzes();
     } catch (err) {
       console.error("Save quiz error:", err);
-      const message = err instanceof Error ? err.message : "Failed to save quiz.";
+      const message =
+        err instanceof Error ? err.message : "Failed to save quiz.";
       toast.error(message);
       setError(message);
     }
   };
 
+  // ── Delete ──
   const requestDeleteQuiz = (quiz: QuizHistory) => {
     setQuizPendingDelete(quiz);
   };
@@ -165,7 +178,9 @@ export const AiQuizGenerator: React.FC = () => {
       await loadQuizzes();
       toast.success("Quiz restored to history");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to restore quiz.");
+      setError(
+        err instanceof Error ? err.message : "Failed to restore quiz."
+      );
     }
   };
 
@@ -177,9 +192,14 @@ export const AiQuizGenerator: React.FC = () => {
     setQuizPendingDelete(null);
 
     try {
-      setQuizzes((prev) => prev.filter((quiz) => quiz.$id !== deletedQuiz.$id));
+      setQuizzes((prev) =>
+        prev.filter((quiz) => quiz.$id !== deletedQuiz.$id)
+      );
       if (editingQuizId === deletedQuiz.$id) {
         cancelEditQuiz();
+      }
+      if (expandedQuizId === deletedQuiz.$id) {
+        setExpandedQuizId(null);
       }
       await databaseService.deleteQuiz(deletedQuiz.$id);
       toast.success("Quiz deleted", {
@@ -192,12 +212,15 @@ export const AiQuizGenerator: React.FC = () => {
       });
     } catch (err) {
       await loadQuizzes();
-      setError(err instanceof Error ? err.message : "Failed to delete quiz.");
+      setError(
+        err instanceof Error ? err.message : "Failed to delete quiz."
+      );
     } finally {
       setDeleteLoading(false);
     }
   };
 
+  // ── Edit ──
   const startEditQuiz = (quiz: QuizHistory) => {
     if (!quiz.$id) return;
     setEditingQuizId(quiz.$id);
@@ -220,7 +243,7 @@ export const AiQuizGenerator: React.FC = () => {
   const updateQuizHistory = async () => {
     if (!editingQuizId) return;
     if (!editTopic.trim() || !editQuizContent.trim()) {
-      setError("Topic and quiz content are required to update quiz history.");
+      setError("Topic and quiz content are required to update.");
       return;
     }
 
@@ -237,25 +260,28 @@ export const AiQuizGenerator: React.FC = () => {
       setSaveSuccess(true);
       setTimeout(() => setSaveSuccess(false), 3000);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to update quiz.");
+      setError(
+        err instanceof Error ? err.message : "Failed to update quiz."
+      );
     }
   };
 
+  // ── Retake ──
   const retakeQuiz = (quiz: QuizHistory) => {
     setTopic(quiz.topic);
     setDifficulty(
-      quiz.difficulty.charAt(0).toUpperCase() + quiz.difficulty.slice(1),
+      quiz.difficulty.charAt(0).toUpperCase() + quiz.difficulty.slice(1)
     );
     setQuestionCount(quiz.questionCount);
     setQuestionType(quiz.questionType);
     setResult(quiz.quizContent);
     setMode("generate");
-    // Update attempts
     databaseService.updateQuiz(quiz.$id || "", {
       attempts: (quiz.attempts || 0) + 1,
     });
   };
 
+  // ── Generate ──
   const handleGenerate = async () => {
     setError(null);
     setResult(null);
@@ -265,11 +291,14 @@ export const AiQuizGenerator: React.FC = () => {
       return;
     }
 
-    const resolvedUserId = user?.$id || (user as any)?.id || user?.id || "test-user";
+    const resolvedUserId =
+      user?.$id || (user as any)?.id || user?.id || "test-user";
     const userPlan = await planService.getUserPlan(resolvedUserId);
-    
+
     if (userPlan.aiCredits < 2) {
-      setError("Insufficient AI Credits. Generating an AI Quiz requires 2 credits. Please navigate to 'Billing & Plans' in the sidebar to upgrade or refill your credits.");
+      setError(
+        "Insufficient AI Credits. Generating an AI Quiz requires 2 credits. Please navigate to 'Billing & Plans' to upgrade or refill."
+      );
       toast.error("Insufficient AI Credits!");
       return;
     }
@@ -285,28 +314,34 @@ export const AiQuizGenerator: React.FC = () => {
       const quizOutput = output || "No response returned from the model.";
       setResult(quizOutput);
 
-      // Deduct credits on successful generation
       if (quizOutput !== "No response returned from the model.") {
-        await planService.deductCredits(resolvedUserId, `AI Quiz - Topic: ${topic.trim()}`, 2);
-        
-        // Auto-save quiz to history after generation
-        if (user?.id || (user as any)?.$id) {
+        await planService.deductCredits(
+          resolvedUserId,
+          `AI Quiz - Topic: ${topic.trim()}`,
+          2
+        );
+
+        if (resolvedUserId) {
           try {
             await saveQuiz(quizOutput);
-            toast.success("Quiz generated and saved to history! (2 AI Credits deducted)");
+            toast.success(
+              "Quiz generated and saved! (2 AI Credits deducted)"
+            );
           } catch {
-            // Silently fail auto-save — user can still save manually
-            console.warn("Auto-save failed, quiz can be saved manually.");
+            console.warn("Auto-save failed.");
           }
         }
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to generate quiz.");
+      setError(
+        err instanceof Error ? err.message : "Failed to generate quiz."
+      );
     } finally {
       setLoading(false);
     }
   };
 
+  // ── Evaluate ──
   const handleEvaluate = async () => {
     setError(null);
     setResult(null);
@@ -325,7 +360,7 @@ export const AiQuizGenerator: React.FC = () => {
       setResult(output || "No response returned from the model.");
     } catch (err) {
       setError(
-        err instanceof Error ? err.message : "Failed to evaluate answers.",
+        err instanceof Error ? err.message : "Failed to evaluate answers."
       );
     } finally {
       setLoading(false);
@@ -334,13 +369,15 @@ export const AiQuizGenerator: React.FC = () => {
 
   const handleModeChange = (newMode: string) => {
     setMode(newMode);
-    // Auto-populate quiz content when switching to evaluate tab
     if (newMode === "evaluate" && result) {
       setQuizText(result);
-      setStudentAnswers(""); // Clear old student answers for new quiz
+      setStudentAnswers("");
     }
   };
 
+  // ══════════════════════════════════════════════
+  // PDF DOWNLOAD
+  // ══════════════════════════════════════════════
   const downloadPDF = () => {
     if (!result) return;
 
@@ -355,7 +392,6 @@ export const AiQuizGenerator: React.FC = () => {
       const title = isEval ? "Answer Evaluation" : "Quiz Paper";
       let y = 0;
 
-      // ── Colors ──
       const blue = { r: 37, g: 99, b: 235 };
       const darkBlue = { r: 30, g: 58, b: 138 };
       const gray50 = { r: 249, g: 250, b: 251 };
@@ -370,7 +406,6 @@ export const AiQuizGenerator: React.FC = () => {
       const greenBg = { r: 240, g: 253, b: 244 };
       const redBg = { r: 254, g: 242, b: 242 };
 
-      // ── Helper: check page break and add new page ──
       const ensureSpace = (needed: number) => {
         if (y + needed > pageH - 22) {
           doc.addPage();
@@ -378,23 +413,18 @@ export const AiQuizGenerator: React.FC = () => {
         }
       };
 
-      // ── Draw header ──
       const drawHeader = (isFirst: boolean) => {
-        // Blue header band
         doc.setFillColor(blue.r, blue.g, blue.b);
         doc.rect(0, 0, pageW, isFirst ? 38 : 12, "F");
-        // Darker accent strip at very top
         doc.setFillColor(darkBlue.r, darkBlue.g, darkBlue.b);
         doc.rect(0, 0, pageW, 3, "F");
 
         if (isFirst) {
-          // App name
           doc.setFont("helvetica", "bold");
           doc.setFontSize(20);
           doc.setTextColor(255, 255, 255);
           doc.text("AI Quiz Studio", marginL, 18);
 
-          // Subtitle badge
           doc.setFontSize(9);
           doc.setFont("helvetica", "normal");
           const badgeText = `  ${title}  `;
@@ -404,15 +434,30 @@ export const AiQuizGenerator: React.FC = () => {
           doc.setTextColor(blue.r, blue.g, blue.b);
           doc.text(badgeText.trim(), marginL + 2, 26.5);
 
-          // Date on right
           doc.setTextColor(220, 230, 255);
           doc.setFontSize(8);
-          doc.text(new Date().toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" }), pageW - marginR, 14, { align: "right" });
-          doc.text(new Date().toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" }), pageW - marginR, 19, { align: "right" });
+          doc.text(
+            new Date().toLocaleDateString("en-US", {
+              year: "numeric",
+              month: "long",
+              day: "numeric",
+            }),
+            pageW - marginR,
+            14,
+            { align: "right" }
+          );
+          doc.text(
+            new Date().toLocaleTimeString("en-US", {
+              hour: "2-digit",
+              minute: "2-digit",
+            }),
+            pageW - marginR,
+            19,
+            { align: "right" }
+          );
 
           y = 44;
 
-          // Meta info row (topic, difficulty, count)
           doc.setFontSize(10);
           doc.setFont("helvetica", "bold");
           doc.setTextColor(gray900.r, gray900.g, gray900.b);
@@ -421,7 +466,6 @@ export const AiQuizGenerator: React.FC = () => {
           doc.text(topicLines, marginL, y);
           y += topicLines.length * 5 + 2;
 
-          // Metadata badges
           doc.setFont("helvetica", "normal");
           doc.setFontSize(7.5);
           const badges = [
@@ -441,7 +485,6 @@ export const AiQuizGenerator: React.FC = () => {
           }
           y += 8;
 
-          // Divider
           doc.setDrawColor(gray300.r, gray300.g, gray300.b);
           doc.setLineWidth(0.3);
           doc.line(marginL, y, pageW - marginR, y);
@@ -451,28 +494,25 @@ export const AiQuizGenerator: React.FC = () => {
         }
       };
 
-      // ── Draw footer ──
       const drawFooters = () => {
         const total = doc.getNumberOfPages();
         for (let p = 1; p <= total; p++) {
           doc.setPage(p);
-          // Footer line
           doc.setDrawColor(gray300.r, gray300.g, gray300.b);
           doc.setLineWidth(0.2);
           doc.line(marginL, pageH - 14, pageW - marginR, pageH - 14);
-          // Footer text
           doc.setFont("helvetica", "normal");
           doc.setFontSize(7);
           doc.setTextColor(gray500.r, gray500.g, gray500.b);
-          doc.text("Generated by AI Quiz Studio", marginL, pageH - 9);
-          doc.text(`Page ${p} of ${total}`, pageW - marginR, pageH - 9, { align: "right" });
+          doc.text("Generated by AI Quiz Studio — Study Planner", marginL, pageH - 9);
+          doc.text(`Page ${p} of ${total}`, pageW - marginR, pageH - 9, {
+            align: "right",
+          });
         }
       };
 
-      // ── Render first-page header ──
       drawHeader(true);
 
-      // ── Process content lines ──
       const lines = result.split("\n");
 
       for (let i = 0; i < lines.length; i++) {
@@ -483,20 +523,15 @@ export const AiQuizGenerator: React.FC = () => {
           continue;
         }
 
-        // --- Question numbers: Q1. Q2. etc ---
         if (/^Q\d+[.:]/.test(trimmed)) {
           ensureSpace(16);
-          if (y > 55) y += 3; // extra gap between questions
-
-          // Tinted background block
+          if (y > 55) y += 3;
           const qLines = doc.splitTextToSize(trimmed, contentW - 10);
           const blockH = qLines.length * 5 + 5;
           doc.setFillColor(blueBg.r, blueBg.g, blueBg.b);
           doc.roundedRect(marginL, y - 4, contentW, blockH, 1.5, 1.5, "F");
-          // Blue left accent bar
           doc.setFillColor(blue.r, blue.g, blue.b);
           doc.roundedRect(marginL, y - 4, 1.2, blockH, 0.6, 0.6, "F");
-
           doc.setFont("helvetica", "bold");
           doc.setFontSize(10.5);
           doc.setTextColor(darkBlue.r, darkBlue.g, darkBlue.b);
@@ -505,13 +540,11 @@ export const AiQuizGenerator: React.FC = () => {
           continue;
         }
 
-        // --- MCQ options: A) B) C) D) ---
         if (/^[A-Da-d][).]\s/.test(trimmed)) {
           ensureSpace(7);
           doc.setFont("helvetica", "normal");
           doc.setFontSize(9.5);
           doc.setTextColor(gray700.r, gray700.g, gray700.b);
-          // Circle bullet
           doc.setFillColor(gray300.r, gray300.g, gray300.b);
           doc.circle(marginL + 6, y - 1, 1.2, "F");
           const optLines = doc.splitTextToSize(trimmed, contentW - 14);
@@ -520,7 +553,6 @@ export const AiQuizGenerator: React.FC = () => {
           continue;
         }
 
-        // --- Score line ---
         if (/^Score:/i.test(trimmed)) {
           ensureSpace(14);
           y += 2;
@@ -536,16 +568,32 @@ export const AiQuizGenerator: React.FC = () => {
           continue;
         }
 
-        // --- Result: Correct / Wrong / Partially Correct ---
         if (/^Result:/i.test(trimmed)) {
           ensureSpace(8);
-          const isCorrect = /correct/i.test(trimmed) && !/wrong|partially/i.test(trimmed);
+          const isCorrect =
+            /correct/i.test(trimmed) && !/wrong|partially/i.test(trimmed);
           const isWrong = /wrong/i.test(trimmed);
-          const color = isCorrect ? green600 : isWrong ? red500 : amber600;
-          const bg = isCorrect ? greenBg : isWrong ? redBg : { r: 255, g: 251, b: 235 };
+          const color = isCorrect
+            ? green600
+            : isWrong
+              ? red500
+              : amber600;
+          const bg = isCorrect
+            ? greenBg
+            : isWrong
+              ? redBg
+              : { r: 255, g: 251, b: 235 };
 
           doc.setFillColor(bg.r, bg.g, bg.b);
-          doc.roundedRect(marginL + 4, y - 3.5, contentW - 8, 6, 1, 1, "F");
+          doc.roundedRect(
+            marginL + 4,
+            y - 3.5,
+            contentW - 8,
+            6,
+            1,
+            1,
+            "F"
+          );
           doc.setFont("helvetica", "bold");
           doc.setFontSize(9);
           doc.setTextColor(color.r, color.g, color.b);
@@ -554,8 +602,11 @@ export const AiQuizGenerator: React.FC = () => {
           continue;
         }
 
-        // --- Section headings (bold labels) ---
-        if (/^(Your Answer:|Correct Answer:|Explanation:|Final Feedback:|Strengths:|Weak Areas:|Study Suggestion:|Quiz Topic:)/i.test(trimmed)) {
+        if (
+          /^(Your Answer:|Correct Answer:|Explanation:|Final Feedback:|Strengths:|Weak Areas:|Study Suggestion:|Quiz Topic:)/i.test(
+            trimmed
+          )
+        ) {
           ensureSpace(8);
           y += 1;
           doc.setFont("helvetica", "bold");
@@ -567,7 +618,6 @@ export const AiQuizGenerator: React.FC = () => {
           continue;
         }
 
-        // --- Bullet points ---
         if (/^[-•]\s/.test(trimmed)) {
           ensureSpace(7);
           doc.setFont("helvetica", "normal");
@@ -575,13 +625,15 @@ export const AiQuizGenerator: React.FC = () => {
           doc.setTextColor(gray700.r, gray700.g, gray700.b);
           doc.setFillColor(blue.r, blue.g, blue.b);
           doc.circle(marginL + 5, y - 1, 0.8, "F");
-          const bLines = doc.splitTextToSize(trimmed.replace(/^[-•]\s*/, ""), contentW - 12);
+          const bLines = doc.splitTextToSize(
+            trimmed.replace(/^[-•]\s*/, ""),
+            contentW - 12
+          );
           doc.text(bLines, marginL + 9, y);
           y += bLines.length * 4.5 + 1.5;
           continue;
         }
 
-        // --- Default text ---
         ensureSpace(7);
         doc.setFont("helvetica", "normal");
         doc.setFontSize(9.5);
@@ -591,7 +643,6 @@ export const AiQuizGenerator: React.FC = () => {
         y += wrapped.length * 4.5 + 1.5;
       }
 
-      // ── Draw continuation headers on pages 2+ ──
       const total = doc.getNumberOfPages();
       for (let p = 2; p <= total; p++) {
         doc.setPage(p);
@@ -605,11 +656,11 @@ export const AiQuizGenerator: React.FC = () => {
         doc.text(`AI Quiz Studio  —  ${title}`, marginL, 8);
       }
 
-      // ── Draw footers on all pages ──
       drawFooters();
 
-      // ── Save ──
-      doc.save(`quiz-${mode}-${new Date().toISOString().split("T")[0]}.pdf`);
+      doc.save(
+        `quiz-${mode}-${topic.trim().replace(/\s+/g, "-").toLowerCase() || "quiz"}-${new Date().toISOString().split("T")[0]}.pdf`
+      );
       toast.success("PDF downloaded successfully!");
     } catch (err) {
       console.error("PDF generation failed:", err);
@@ -619,12 +670,13 @@ export const AiQuizGenerator: React.FC = () => {
 
   return (
     <div className="space-y-4 sm:space-y-6">
+      {/* Hero Header Card */}
       <Card className="relative overflow-hidden border border-border/60 mx-0">
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,#38bdf820,transparent_55%)]" />
-        <div className="absolute inset-y-0 right-0 w-1/2 bg-gradient-to-l from-primary/10 to-transparent" />
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,#6366f120,transparent_55%)]" />
+        <div className="absolute inset-y-0 right-0 w-1/2 bg-gradient-to-l from-indigo-500/10 to-transparent" />
         <CardHeader className="relative space-y-3 px-4 py-4 sm:px-6 sm:py-6">
           <div className="flex flex-wrap items-center gap-3">
-            <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-primary/15 text-primary">
+            <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-indigo-500/15 text-indigo-600 dark:text-indigo-400">
               <Sparkles className="h-5 w-5" />
             </div>
             <div>
@@ -639,54 +691,79 @@ export const AiQuizGenerator: React.FC = () => {
           </div>
           <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 text-[11px] sm:text-xs md:text-sm text-muted-foreground mb-4">
             <span className="inline-flex items-center gap-1.5 rounded-full border border-border/70 bg-background/60 px-2 py-0.5 sm:px-3 sm:py-1">
-              Adaptive difficulty
+              <Sparkles className="h-3 w-3 text-indigo-500" />
+              Quiz Generation
             </span>
             <span className="inline-flex items-center gap-1.5 rounded-full border border-border/70 bg-background/60 px-2 py-0.5 sm:px-3 sm:py-1">
-              MCQ and short answers
+              <ClipboardCheck className="h-3 w-3 text-emerald-500" />
+              Answer Evaluation
             </span>
             <span className="inline-flex items-center gap-1.5 rounded-full border border-border/70 bg-background/60 px-2 py-0.5 sm:px-3 sm:py-1">
-              Detailed scoring
+              Adaptive Difficulty
             </span>
             <span className="inline-flex items-center gap-1.5 rounded-full border border-indigo-500/20 bg-indigo-500/5 text-indigo-600 dark:text-indigo-400 font-bold px-2 py-0.5 sm:px-3 sm:py-1">
-              ⚡ {activePlan !== null ? `${activePlan.aiCredits} AI Credits` : "AI Credits Balance"}
+              ⚡{" "}
+              {activePlan !== null
+                ? `${activePlan.aiCredits} AI Credits`
+                : "AI Credits Balance"}
             </span>
           </div>
         </CardHeader>
       </Card>
 
-      <Tabs value={mode} onValueChange={handleModeChange} className="space-y-4">
+      {/* Tabs */}
+      <Tabs
+        value={mode}
+        onValueChange={handleModeChange}
+        className="space-y-4"
+      >
         <TabsList className="w-full sm:w-auto">
-          <TabsTrigger value="generate">Quiz Generation</TabsTrigger>
-          <TabsTrigger value="evaluate">Answer Evaluation</TabsTrigger>
+          <TabsTrigger value="generate" className="gap-1.5">
+            <Sparkles className="h-3.5 w-3.5" />
+            Quiz Generation
+          </TabsTrigger>
+          <TabsTrigger value="evaluate" className="gap-1.5">
+            <ClipboardCheck className="h-3.5 w-3.5" />
+            Answer Evaluation
+          </TabsTrigger>
         </TabsList>
 
+        {/* ─── GENERATE TAB ─── */}
         <TabsContent value="generate">
           <div className="grid gap-4 lg:grid-cols-[1.2fr_0.8fr]">
             <Card className="border-border/60">
               <CardHeader>
-                <CardTitle>Generate a quiz</CardTitle>
+                <CardTitle>Generate a Quiz</CardTitle>
                 <CardDescription>
-                  Provide a topic and tuning options. The output will not
-                  include answers.
+                  Provide a topic and tuning options. The output will not include
+                  answers.
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2">
                   <div className="space-y-2">
-                    <label className="text-sm font-medium">Quiz topic</label>
+                    <label className="text-sm font-medium">Quiz topic *</label>
                     <Input
                       placeholder="e.g., Photosynthesis, Algebra, World War II"
                       value={topic}
-                      onChange={(event) => setTopic(event.target.value)}
+                      onChange={(e) => setTopic(e.target.value)}
                     />
                   </div>
                   <div className="space-y-2">
                     <label className="text-sm font-medium">Difficulty</label>
-                    <Input
-                      placeholder="Beginner / Intermediate / Advanced"
-                      value={difficulty}
-                      onChange={(event) => setDifficulty(event.target.value)}
-                    />
+                    <div className="flex flex-wrap gap-2">
+                      {["Beginner", "Intermediate", "Advanced"].map((d) => (
+                        <Button
+                          key={d}
+                          type="button"
+                          variant={difficulty === d ? "default" : "outline"}
+                          size="sm"
+                          onClick={() => setDifficulty(d)}
+                        >
+                          {d}
+                        </Button>
+                      ))}
+                    </div>
                   </div>
                   <div className="space-y-2">
                     <label className="text-sm font-medium">
@@ -697,11 +774,9 @@ export const AiQuizGenerator: React.FC = () => {
                       min={1}
                       max={30}
                       value={questionCount}
-                      onChange={(event) => {
-                        const nextValue = Number(event.target.value);
-                        setQuestionCount(
-                          Number.isNaN(nextValue) ? 1 : nextValue,
-                        );
+                      onChange={(e) => {
+                        const v = Number(e.target.value);
+                        setQuestionCount(Number.isNaN(v) ? 1 : v);
                       }}
                     />
                   </div>
@@ -710,43 +785,39 @@ export const AiQuizGenerator: React.FC = () => {
                       Question types
                     </label>
                     <div className="flex flex-wrap gap-2">
-                      <Button
-                        type="button"
-                        variant={questionType === "mcq" ? "default" : "outline"}
-                        onClick={() => setQuestionType("mcq")}
-                      >
-                        MCQ
-                      </Button>
-                      <Button
-                        type="button"
-                        variant={
-                          questionType === "short" ? "default" : "outline"
-                        }
-                        onClick={() => setQuestionType("short")}
-                      >
-                        Short Answer
-                      </Button>
-                      <Button
-                        type="button"
-                        variant={
-                          questionType === "mixed" ? "default" : "outline"
-                        }
-                        onClick={() => setQuestionType("mixed")}
-                      >
-                        Mixed
-                      </Button>
+                      {(["mcq", "short", "mixed"] as const).map((t) => (
+                        <Button
+                          key={t}
+                          type="button"
+                          variant={questionType === t ? "default" : "outline"}
+                          size="sm"
+                          onClick={() => setQuestionType(t)}
+                        >
+                          {t === "mcq"
+                            ? "MCQ"
+                            : t === "short"
+                              ? "Short Answer"
+                              : "Mixed"}
+                        </Button>
+                      ))}
                     </div>
                   </div>
                 </div>
                 <div className="flex flex-col sm:flex-row flex-wrap items-start sm:items-center gap-2 sm:gap-3">
-                  <Button onClick={handleGenerate} disabled={loading} className="w-full sm:w-auto">
+                  <Button
+                    onClick={handleGenerate}
+                    disabled={loading}
+                    className="w-full sm:w-auto bg-indigo-600 hover:bg-indigo-700 text-white"
+                  >
                     {loading ? (
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    ) : null}
+                    ) : (
+                      <Sparkles className="mr-2 h-4 w-4" />
+                    )}
                     Generate Quiz
                   </Button>
                   <span className="text-xs text-muted-foreground">
-                    Best results use a specific chapter or syllabus name.
+                    Costs 2 AI Credits per generation
                   </span>
                 </div>
               </CardContent>
@@ -754,27 +825,28 @@ export const AiQuizGenerator: React.FC = () => {
 
             <Card className="border-dashed border-border/70 bg-muted/20">
               <CardHeader>
-                <CardTitle className="text-base">Pro tips</CardTitle>
+                <CardTitle className="text-base">What you'll get</CardTitle>
                 <CardDescription>
-                  Keep your quizzes consistent with your exam style.
+                  Exam-ready quizzes tailored to your needs.
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-3 text-sm text-muted-foreground">
-                <p>
-                  Specify the course, board, or unit for sharper difficulty
-                  control.
-                </p>
-                <p>Use mixed mode for balanced practice and revision.</p>
-                <p>Generate 6-10 questions for faster review sessions.</p>
+                <p>📝 Numbered questions (Q1, Q2...)</p>
+                <p>🔤 MCQ options (A, B, C, D) with distractors</p>
+                <p>✍️ Short answer questions</p>
+                <p>🎯 Adaptive difficulty control</p>
+                <p>📊 Answer evaluation with detailed feedback</p>
+                <p>💡 Pro tip: Specify board/unit for sharper quizzes</p>
               </CardContent>
             </Card>
           </div>
         </TabsContent>
 
+        {/* ─── EVALUATE TAB ─── */}
         <TabsContent value="evaluate">
           <Card className="border-border/60">
             <CardHeader>
-              <CardTitle>Evaluate answers</CardTitle>
+              <CardTitle>Evaluate Answers</CardTitle>
               <CardDescription>
                 Paste the quiz and the student's responses. You will get scores
                 and feedback.
@@ -785,27 +857,35 @@ export const AiQuizGenerator: React.FC = () => {
                 <div className="space-y-2">
                   <label className="text-sm font-medium">Quiz content</label>
                   <Textarea
-                    rows={5}
+                    rows={8}
                     placeholder="Paste the quiz questions here."
                     value={quizText}
-                    onChange={(event) => setQuizText(event.target.value)}
+                    onChange={(e) => setQuizText(e.target.value)}
                   />
                 </div>
                 <div className="space-y-2">
-                  <label className="text-sm font-medium">Student answers</label>
+                  <label className="text-sm font-medium">
+                    Student answers
+                  </label>
                   <Textarea
                     rows={8}
                     placeholder="Paste the student's answers here."
                     value={studentAnswers}
-                    onChange={(event) => setStudentAnswers(event.target.value)}
+                    onChange={(e) => setStudentAnswers(e.target.value)}
                   />
                 </div>
               </div>
               <div className="flex flex-col sm:flex-row flex-wrap items-start sm:items-center gap-2 sm:gap-3">
-                <Button onClick={handleEvaluate} disabled={loading} className="w-full sm:w-auto">
+                <Button
+                  onClick={handleEvaluate}
+                  disabled={loading}
+                  className="w-full sm:w-auto bg-emerald-600 hover:bg-emerald-700 text-white"
+                >
                   {loading ? (
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  ) : null}
+                  ) : (
+                    <ClipboardCheck className="mr-2 h-4 w-4" />
+                  )}
                   Evaluate Answers
                 </Button>
                 <span className="text-xs text-muted-foreground">
@@ -817,6 +897,7 @@ export const AiQuizGenerator: React.FC = () => {
         </TabsContent>
       </Tabs>
 
+      {/* Error Alert */}
       {error && (
         <Alert variant="destructive">
           <AlertTitle>Action needed</AlertTitle>
@@ -824,19 +905,33 @@ export const AiQuizGenerator: React.FC = () => {
         </Alert>
       )}
 
+      {/* Save Success */}
       {saveSuccess && (
-        <Alert className="border-green-200 bg-green-50">
-          <AlertTitle className="text-green-800">Success</AlertTitle>
-          <AlertDescription className="text-green-700">
+        <Alert className="border-green-200 bg-green-50 dark:border-green-800 dark:bg-green-950/40">
+          <AlertTitle className="text-green-800 dark:text-green-300">
+            Success
+          </AlertTitle>
+          <AlertDescription className="text-green-700 dark:text-green-400">
             Quiz saved successfully to your history!
           </AlertDescription>
         </Alert>
       )}
 
+      {/* AI Output */}
       {result && (
         <Card className="border-border/60 shadow-lg">
           <CardHeader className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-2 px-4 py-4 sm:px-6">
-            <CardTitle className="text-lg sm:text-2xl">AI Output</CardTitle>
+            <div>
+              <CardTitle className="text-lg sm:text-2xl">
+                {mode === "generate"
+                  ? "📝 Generated Quiz"
+                  : "📊 Evaluation Results"}
+              </CardTitle>
+              <CardDescription className="mt-1">
+                {topic.trim() || "Quiz"} — {difficulty} •{" "}
+                {questionCount} questions • {questionType.toUpperCase()}
+              </CardDescription>
+            </div>
             <div className="flex gap-2 w-full sm:w-auto">
               {mode === "generate" && user && (
                 <Button
@@ -864,22 +959,26 @@ export const AiQuizGenerator: React.FC = () => {
           <CardContent className="bg-muted/40 rounded-lg p-3 sm:p-6 space-y-0">
             <div className="space-y-0 leading-7 sm:leading-8 text-sm sm:text-base font-sans">
               {result.split("\n").map((line, idx) => {
-                const isQuestionNumber = /^Q\d+\./.test(line);
-                const isBoldLabel =
-                  /^(Score:|Q\d+:|Your Answer:|Correct Answer:|Result:|Explanation:|Final Feedback:|Strengths:|Weak Areas:|Study Suggestion:|Quiz Topic:|-\s+(Strengths|Weak Areas|Study Suggestion):)/.test(
-                    line,
+                const t = line.trim();
+                const isQ = /^Q\d+[.:]/.test(t);
+                const isLabel =
+                  /^(Score:|Your Answer:|Correct Answer:|Result:|Explanation:|Final Feedback:|Strengths:|Weak Areas:|Study Suggestion:)/i.test(
+                    t
                   );
+                const isOption = /^[A-Da-d][).]\s/.test(t);
 
                 return (
                   <div
                     key={idx}
-                    className="min-h-7 sm:min-h-8 py-0.5 sm:py-1 px-2 sm:px-4 hover:bg-primary/5 transition-colors rounded"
+                    className={`min-h-7 sm:min-h-8 py-0.5 sm:py-1 px-2 sm:px-4 hover:bg-primary/5 transition-colors rounded ${
+                      isOption ? "pl-4 sm:pl-6" : ""
+                    }`}
                   >
                     <div
                       className={`${
-                        isQuestionNumber
-                          ? "font-bold text-primary text-base sm:text-lg"
-                          : isBoldLabel
+                        isQ
+                          ? "font-bold text-indigo-600 dark:text-indigo-400 text-base sm:text-lg mt-2"
+                          : isLabel
                             ? "font-semibold text-foreground"
                             : "text-foreground"
                       }`}
@@ -894,12 +993,15 @@ export const AiQuizGenerator: React.FC = () => {
         </Card>
       )}
 
+      {/* Quiz History */}
       {user && quizzes.length > 0 && (
         <Card className="border-border/60 shadow-lg">
           <CardHeader>
-            <CardTitle className="text-lg sm:text-2xl">Quiz History</CardTitle>
+            <CardTitle className="text-lg sm:text-2xl">
+              Quiz History
+            </CardTitle>
             <CardDescription>
-              Your saved quizzes - retake them anytime
+              Your saved quizzes — view, retake, edit, or download anytime
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -915,29 +1017,39 @@ export const AiQuizGenerator: React.FC = () => {
                     className="p-3 sm:p-4 rounded-lg border border-border/60 hover:bg-muted/30 transition-colors"
                   >
                     {editingQuizId === quiz.$id ? (
+                      /* ── Edit Mode ── */
                       <div className="space-y-3">
-                        <div className="grid gap-3 md:grid-cols-2">
+                        <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-4">
                           <div className="space-y-1">
                             <label className="text-xs font-medium text-muted-foreground">
                               Topic
                             </label>
                             <Input
                               value={editTopic}
-                              onChange={(event) =>
-                                setEditTopic(event.target.value)
-                              }
+                              onChange={(e) => setEditTopic(e.target.value)}
                             />
                           </div>
                           <div className="space-y-1">
                             <label className="text-xs font-medium text-muted-foreground">
-                              Difficulty (easy, medium, hard)
+                              Difficulty
                             </label>
-                            <Input
-                              value={editDifficulty}
-                              onChange={(event) =>
-                                setEditDifficulty(event.target.value)
-                              }
-                            />
+                            <div className="flex gap-2">
+                              {["easy", "medium", "hard"].map((d) => (
+                                <Button
+                                  key={d}
+                                  type="button"
+                                  variant={
+                                    editDifficulty === d
+                                      ? "default"
+                                      : "outline"
+                                  }
+                                  size="sm"
+                                  onClick={() => setEditDifficulty(d)}
+                                >
+                                  {d.charAt(0).toUpperCase() + d.slice(1)}
+                                </Button>
+                              ))}
+                            </div>
                           </div>
                           <div className="space-y-1">
                             <label className="text-xs font-medium text-muted-foreground">
@@ -948,10 +1060,10 @@ export const AiQuizGenerator: React.FC = () => {
                               min={1}
                               max={30}
                               value={editQuestionCount}
-                              onChange={(event) => {
-                                const nextValue = Number(event.target.value);
+                              onChange={(e) => {
+                                const v = Number(e.target.value);
                                 setEditQuestionCount(
-                                  Number.isNaN(nextValue) ? 1 : nextValue,
+                                  Number.isNaN(v) ? 1 : v
                                 );
                               }}
                             />
@@ -961,42 +1073,27 @@ export const AiQuizGenerator: React.FC = () => {
                               Question type
                             </label>
                             <div className="flex gap-2">
-                              <Button
-                                type="button"
-                                variant={
-                                  editQuestionType === "mcq"
-                                    ? "default"
-                                    : "outline"
-                                }
-                                size="sm"
-                                onClick={() => setEditQuestionType("mcq")}
-                              >
-                                MCQ
-                              </Button>
-                              <Button
-                                type="button"
-                                variant={
-                                  editQuestionType === "short"
-                                    ? "default"
-                                    : "outline"
-                                }
-                                size="sm"
-                                onClick={() => setEditQuestionType("short")}
-                              >
-                                Short
-                              </Button>
-                              <Button
-                                type="button"
-                                variant={
-                                  editQuestionType === "mixed"
-                                    ? "default"
-                                    : "outline"
-                                }
-                                size="sm"
-                                onClick={() => setEditQuestionType("mixed")}
-                              >
-                                Mixed
-                              </Button>
+                              {(["mcq", "short", "mixed"] as const).map(
+                                (t) => (
+                                  <Button
+                                    key={t}
+                                    type="button"
+                                    variant={
+                                      editQuestionType === t
+                                        ? "default"
+                                        : "outline"
+                                    }
+                                    size="sm"
+                                    onClick={() => setEditQuestionType(t)}
+                                  >
+                                    {t === "mcq"
+                                      ? "MCQ"
+                                      : t === "short"
+                                        ? "Short"
+                                        : "Mixed"}
+                                  </Button>
+                                )
+                              )}
                             </div>
                           </div>
                         </div>
@@ -1007,8 +1104,8 @@ export const AiQuizGenerator: React.FC = () => {
                           <Textarea
                             rows={6}
                             value={editQuizContent}
-                            onChange={(event) =>
-                              setEditQuizContent(event.target.value)
+                            onChange={(e) =>
+                              setEditQuizContent(e.target.value)
                             }
                           />
                         </div>
@@ -1033,55 +1130,118 @@ export const AiQuizGenerator: React.FC = () => {
                         </div>
                       </div>
                     ) : (
-                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4">
-                        <div className="flex-1">
-                          <h3 className="font-semibold text-foreground">
-                            {quiz.topic}
-                          </h3>
-                          <div className="flex flex-wrap gap-2 sm:gap-3 mt-1.5 sm:mt-2 text-[11px] sm:text-xs text-muted-foreground">
-                            <span>
-                              {quiz.questionCount} questions (
-                              {quiz.questionType})
-                            </span>
-                            <span>Difficulty: {quiz.difficulty}</span>
-                            <span>
-                              {quiz.attempts || 0} attempt
-                              {(quiz.attempts || 0) !== 1 ? "s" : ""}
-                            </span>
-                            <span>
-                              {new Date(quiz.createdAt).toLocaleDateString()}
-                            </span>
+                      /* ── View Mode ── */
+                      <div>
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4">
+                          <div className="flex-1">
+                            <h3 className="font-semibold text-foreground">
+                              {quiz.topic}
+                            </h3>
+                            <div className="flex flex-wrap gap-2 sm:gap-3 mt-1.5 sm:mt-2 text-[11px] sm:text-xs text-muted-foreground">
+                              <span className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 font-semibold bg-indigo-500/10 text-indigo-600 dark:text-indigo-400">
+                                <Sparkles className="h-3 w-3" />
+                                {quiz.questionType.toUpperCase()}
+                              </span>
+                              <span>
+                                {quiz.questionCount} questions
+                              </span>
+                              <span>Difficulty: {quiz.difficulty}</span>
+                              <span className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-semibold">
+                                <RotateCcw className="h-3 w-3" />
+                                {quiz.attempts || 0} attempt
+                                {(quiz.attempts || 0) !== 1 ? "s" : ""}
+                              </span>
+                              <span>
+                                {new Date(
+                                  quiz.createdAt
+                                ).toLocaleDateString()}
+                              </span>
+                            </div>
+                          </div>
+                          <div className="flex flex-wrap gap-1.5 sm:gap-2 w-full sm:w-auto">
+                            <Button
+                              onClick={() =>
+                                setExpandedQuizId(
+                                  expandedQuizId === quiz.$id
+                                    ? null
+                                    : quiz.$id || null
+                                )
+                              }
+                              variant="outline"
+                              size="sm"
+                              className="gap-1.5 sm:gap-2 flex-1 sm:flex-none text-xs sm:text-sm"
+                            >
+                              <Eye className="w-4 h-4" />
+                              {expandedQuizId === quiz.$id
+                                ? "Collapse"
+                                : "View"}
+                            </Button>
+                            <Button
+                              onClick={() => retakeQuiz(quiz)}
+                              variant="outline"
+                              size="sm"
+                              className="gap-1.5 sm:gap-2 flex-1 sm:flex-none text-xs sm:text-sm"
+                            >
+                              <RotateCcw className="w-4 h-4" />
+                              Retake
+                            </Button>
+                            <Button
+                              onClick={() => startEditQuiz(quiz)}
+                              variant="outline"
+                              size="sm"
+                              className="gap-1.5 sm:gap-2 flex-1 sm:flex-none text-xs sm:text-sm"
+                            >
+                              <Pencil className="w-4 h-4" />
+                              Edit
+                            </Button>
+                            <Button
+                              onClick={() => requestDeleteQuiz(quiz)}
+                              variant="outline"
+                              size="sm"
+                              className="gap-1.5 sm:gap-2 flex-1 sm:flex-none text-xs sm:text-sm text-destructive hover:text-destructive"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                              Delete
+                            </Button>
                           </div>
                         </div>
-                        <div className="flex flex-wrap gap-1.5 sm:gap-2 w-full sm:w-auto">
-                          <Button
-                            onClick={() => retakeQuiz(quiz)}
-                            variant="outline"
-                            size="sm"
-                            className="gap-1.5 sm:gap-2 flex-1 sm:flex-none text-xs sm:text-sm"
-                          >
-                            <RotateCcw className="w-4 h-4" />
-                            Retake
-                          </Button>
-                          <Button
-                            onClick={() => startEditQuiz(quiz)}
-                            variant="outline"
-                            size="sm"
-                            className="gap-1.5 sm:gap-2 flex-1 sm:flex-none text-xs sm:text-sm"
-                          >
-                            <Pencil className="w-4 h-4" />
-                            Edit
-                          </Button>
-                          <Button
-                            onClick={() => requestDeleteQuiz(quiz)}
-                            variant="outline"
-                            size="sm"
-                            className="gap-1.5 sm:gap-2 flex-1 sm:flex-none text-xs sm:text-sm text-destructive hover:text-destructive"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                            Delete
-                          </Button>
-                        </div>
+
+                        {/* Expandable quiz content */}
+                        {expandedQuizId === quiz.$id && (
+                          <div className="mt-4 p-3 sm:p-4 rounded-lg bg-muted/40 border border-border/40">
+                            <div className="space-y-0 leading-7 text-sm font-sans max-h-96 overflow-y-auto">
+                              {quiz.quizContent
+                                .split("\n")
+                                .map((line, idx) => {
+                                  const isQ = /^Q\d+[.:]/.test(
+                                    line.trim()
+                                  );
+                                  const isLabel =
+                                    /^(Score:|Your Answer:|Correct Answer:|Result:|Explanation:)/i.test(
+                                      line.trim()
+                                    );
+                                  return (
+                                    <div
+                                      key={idx}
+                                      className="min-h-6 py-0.5 px-2"
+                                    >
+                                      <div
+                                        className={
+                                          isQ
+                                            ? "font-bold text-indigo-600 dark:text-indigo-400"
+                                            : isLabel
+                                              ? "font-semibold text-foreground"
+                                              : "text-foreground"
+                                        }
+                                      >
+                                        {line || "\u00A0"}
+                                      </div>
+                                    </div>
+                                  );
+                                })}
+                            </div>
+                          </div>
+                        )}
                       </div>
                     )}
                   </div>
@@ -1092,6 +1252,7 @@ export const AiQuizGenerator: React.FC = () => {
         </Card>
       )}
 
+      {/* Delete Confirmation Dialog */}
       <AlertDialog
         open={Boolean(quizPendingDelete)}
         onOpenChange={(isOpen) => {
@@ -1107,7 +1268,7 @@ export const AiQuizGenerator: React.FC = () => {
               This will remove
               {quizPendingDelete
                 ? ` "${quizPendingDelete.topic}"`
-                : " this quiz"}
+                : " this quiz"}{" "}
               from history. You can still undo right after deletion.
             </AlertDialogDescription>
           </AlertDialogHeader>

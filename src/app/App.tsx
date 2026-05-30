@@ -8,6 +8,9 @@ import { SubjectsManager } from "../components/SubjectsManager";
 import { ExamsManager } from "../components/ExamsManager";
 import { PomodoroTimer } from "../components/PomodoroTimer";
 import { AiQuizGenerator } from "../components/AiQuizGenerator";
+import { AiNotesGenerator } from "../components/AiNotesGenerator";
+import { AiRoadmapGenerator } from "../components/AiRoadmapGenerator";
+import { AiTutorExplain } from "../components/AiTutorExplain";
 import { OnboardingGuide } from "../components/OnboardingGuide";
 import { Billing } from "../components/Billing";
 import { PomodoroProvider } from "../contexts/PomodoroContext";
@@ -23,6 +26,9 @@ import {
   Calendar,
   Timer,
   Sparkles,
+  FileText,
+  Map,
+  GraduationCap,
   CreditCard,
   LogOut,
   Moon,
@@ -41,6 +47,9 @@ type Page =
   | "exams"
   | "pomodoro"
   | "ai-quiz"
+  | "ai-notes"
+  | "ai-roadmap"
+  | "ai-tutor"
   | "billing";
 
 const Sidebar: React.FC<{
@@ -82,6 +91,9 @@ const Sidebar: React.FC<{
     { id: "exams" as Page, label: "Exams", icon: Calendar },
     { id: "pomodoro" as Page, label: "Pomodoro", icon: Timer },
     { id: "ai-quiz" as Page, label: "AI Quiz", icon: Sparkles },
+    { id: "ai-notes" as Page, label: "AI Notes", icon: FileText },
+    { id: "ai-roadmap" as Page, label: "AI Roadmap", icon: Map },
+    { id: "ai-tutor" as Page, label: "AI Tutor", icon: GraduationCap },
     { id: "billing" as Page, label: "Billing & Plans", icon: CreditCard },
   ];
 
@@ -427,6 +439,9 @@ const AppContent: React.FC = () => {
           )}
           {currentPage === "pomodoro" && <PomodoroTimer />}
           {currentPage === "ai-quiz" && <AiQuizGenerator />}
+          {currentPage === "ai-notes" && <AiNotesGenerator />}
+          {currentPage === "ai-roadmap" && <AiRoadmapGenerator />}
+          {currentPage === "ai-tutor" && <AiTutorExplain />}
           {currentPage === "billing" && <Billing />}
           </div>
         </div>

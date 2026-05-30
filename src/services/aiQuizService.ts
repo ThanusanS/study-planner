@@ -127,7 +127,7 @@ const GEMINI_MODELS = [
   "gemini-2.0-flash-lite",
 ];
 
-const callAIProvider = async (content: string) => {
+export const callAIProvider = async (content: string, systemPrompt?: string) => {
   const geminiApiKey = getGeminiConfig();
 
   if (geminiApiKey && geminiApiKey.trim() !== "") {
@@ -141,7 +141,7 @@ const callAIProvider = async (content: string) => {
         console.log(`Trying Gemini model: ${modelName}...`);
         const model = genAI.getGenerativeModel({
           model: modelName,
-          systemInstruction: SYSTEM_PROMPT,
+          systemInstruction: systemPrompt || SYSTEM_PROMPT,
         });
 
         const result = await model.generateContent({
@@ -189,7 +189,7 @@ const callAIProvider = async (content: string) => {
     body: JSON.stringify({
       model,
       messages: [
-        { role: "system", content: SYSTEM_PROMPT },
+        { role: "system", content: systemPrompt || SYSTEM_PROMPT },
         { role: "user", content },
       ],
       temperature: 0.7,

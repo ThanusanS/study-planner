@@ -18,6 +18,12 @@ export const appwriteConfig = {
   userPlansCollectionId: "userPlans",
   usageLogsCollectionId: "usageLogs",
   billingHistoryCollectionId: "billingHistory",
+  // AI Notes Generator
+  notesHistoryCollectionId: "notesHistory",
+  // AI Roadmap Generator
+  roadmapHistoryCollectionId: "roadmapHistory",
+  // AI Tutor
+  tutorHistoryCollectionId: "tutorHistory",
 };
 
 // Initialize Appwrite Client

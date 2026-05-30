@@ -1,0 +1,12 @@
+{
+  "name": "stripe-checkout",
+  "version": "1.0.0",
+  "description": "Appwrite serverless function to generate secure Stripe Checkout Sessions",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"No tests specified\""
+  },
+  "dependencies": {
+    "stripe": "^14.0.0"
+  }
+}

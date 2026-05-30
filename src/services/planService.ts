@@ -1,6 +1,6 @@
 import { jsPDF } from "jspdf";
 import { ID, Query } from "appwrite";
-import { databases, appwriteConfig } from "../lib/appwrite";
+import { databases, appwriteConfig, functions } from "../lib/appwrite";
 
 const { databaseId } = appwriteConfig;
 
@@ -148,6 +148,37 @@ class PlanService {
     await this.createInvoice(userId, amount, `${PLAN_LIMITS[targetPlan].name}`, cycle === "monthly" ? "Monthly" : "Yearly");
 
     return plan;
+  }
+
+  // ========== CREATE REAL STRIPE CHECKOUT SESSION ==========
+  async createStripeCheckoutSession(
+    userId: string,
+    plan: "pro" | "premium",
+    cycle: "monthly" | "yearly"
+  ): Promise<string> {
+    try {
+      const execution = await functions.createExecution(
+        "stripe-checkout", // This matches the Appwrite Function ID
+        JSON.stringify({ userId, plan, cycle }),
+        false, // wait for completion
+        "/",
+        "POST",
+        { "Content-Type": "application/json" }
+      );
+
+      if (!execution.responseBody) {
+        throw new Error("No response body received from stripe-checkout function.");
+      }
+
+      const result = JSON.parse(execution.responseBody);
+      if (result.error) {
+        throw new Error(result.error);
+      }
+      return result.url; // Returns Stripe redirect URL
+    } catch (error) {
+      console.error("Error creating Stripe checkout session:", error);
+      throw error;
+    }
   }
 
   // ========== DOWNGRADE TO FREE ==========

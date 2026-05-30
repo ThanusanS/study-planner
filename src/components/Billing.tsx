@@ -103,9 +103,25 @@ export const Billing: React.FC = () => {
   }, [usagePercentage]);
 
   // ========== STRIPE SECURE PAYMENT ACTIONS ==========
-  const handleUpgradeClick = (planType: "pro" | "premium") => {
-    setSelectedUpgradePlan(planType);
-    setIsStripeModalOpen(true);
+  const handleUpgradeClick = async (planType: "pro" | "premium") => {
+    setCheckoutLoading(true);
+    const toastId = toast.loading(`Connecting to Stripe Gateway for ${planType === "pro" ? "Scholar Pro" : "Elite Premium"}...`);
+    try {
+      const checkoutUrl = await planService.createStripeCheckoutSession(userId, planType, billingCycle);
+      toast.dismiss(toastId);
+      toast.success("Redirecting to Stripe secure checkout...");
+      window.location.href = checkoutUrl;
+    } catch (err) {
+      toast.dismiss(toastId);
+      console.error("Stripe Webhook/Session Redirect Failed:", err);
+      toast.error("Real Stripe Function is not deployed yet. Launching Developer Sandbox simulator...");
+      
+      // Fallback to Developer sandbox modal
+      setSelectedUpgradePlan(planType);
+      setIsStripeModalOpen(true);
+    } finally {
+      setCheckoutLoading(false);
+    }
   };
 
   const handleCheckoutSubmit = async (e: React.FormEvent) => {
@@ -126,7 +142,7 @@ export const Billing: React.FC = () => {
           setCardNumber("");
           setExpiry("");
           setCvc("");
-          toast.success(`🎉 Purchase Complete! You are now subscribed to ${selectedUpgradePlan === "pro" ? "Scholar Pro" : "Elite Premium"}!`);
+          toast.success(`🎉 Sandbox Complete! You are now subscribed to ${selectedUpgradePlan === "pro" ? "Scholar Pro" : "Elite Premium"}!`);
         } catch (err) {
           toast.error("Stripe gateway returned a verification timeout.");
         } finally {

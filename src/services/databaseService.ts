@@ -78,6 +78,39 @@ export interface QuizHistory {
   attempts?: number;
 }
 
+export interface NotesHistory {
+  $id?: string;
+  userId: string;
+  topic: string;
+  subject?: string;
+  noteType: "short" | "full";
+  notesContent: string;
+  createdAt: string;
+}
+
+export interface RoadmapHistory {
+  $id?: string;
+  userId: string;
+  goal: string;
+  subject?: string;
+  duration?: string;
+  level?: string;
+  roadmapType: "quick" | "detailed";
+  roadmapContent: string;
+  createdAt: string;
+}
+
+export interface TutorHistory {
+  $id?: string;
+  userId: string;
+  topic: string;
+  subject?: string;
+  level?: string;
+  explainType: "simple" | "deep" | "doubt";
+  tutorContent: string;
+  createdAt: string;
+}
+
 class DatabaseService {
   // ========== SUBJECTS ==========
   async createSubject(subject: Omit<Subject, "$id">): Promise<Subject> {
@@ -418,6 +451,174 @@ class DatabaseService {
     for (const quiz of quizzes) {
       if (quiz.$id) {
         await this.deleteQuiz(quiz.$id);
+      }
+    }
+  }
+
+  // ========== NOTES HISTORY ==========
+  async createNote(note: Omit<NotesHistory, "$id">): Promise<NotesHistory> {
+    return await databases.createDocument(
+      databaseId,
+      appwriteConfig.notesHistoryCollectionId,
+      ID.unique(),
+      note,
+    );
+  }
+
+  async getNotes(userId: string): Promise<NotesHistory[]> {
+    const response = await databases.listDocuments(
+      databaseId,
+      appwriteConfig.notesHistoryCollectionId,
+      [Query.equal("userId", userId), Query.orderDesc("createdAt")],
+    );
+    return response.documents as NotesHistory[];
+  }
+
+  async getNoteById(noteId: string): Promise<NotesHistory> {
+    return (await databases.getDocument(
+      databaseId,
+      appwriteConfig.notesHistoryCollectionId,
+      noteId,
+    )) as NotesHistory;
+  }
+
+  async updateNote(
+    noteId: string,
+    data: Partial<NotesHistory>,
+  ): Promise<NotesHistory> {
+    return (await databases.updateDocument(
+      databaseId,
+      appwriteConfig.notesHistoryCollectionId,
+      noteId,
+      data,
+    )) as NotesHistory;
+  }
+
+  async deleteNote(noteId: string): Promise<void> {
+    await databases.deleteDocument(
+      databaseId,
+      appwriteConfig.notesHistoryCollectionId,
+      noteId,
+    );
+  }
+
+  async deleteAllUserNotes(userId: string): Promise<void> {
+    const notes = await this.getNotes(userId);
+    for (const note of notes) {
+      if (note.$id) {
+        await this.deleteNote(note.$id);
+      }
+    }
+  }
+
+  // ========== ROADMAP HISTORY ==========
+  async createRoadmap(roadmap: Omit<RoadmapHistory, "$id">): Promise<RoadmapHistory> {
+    return await databases.createDocument(
+      databaseId,
+      appwriteConfig.roadmapHistoryCollectionId,
+      ID.unique(),
+      roadmap,
+    );
+  }
+
+  async getRoadmaps(userId: string): Promise<RoadmapHistory[]> {
+    const response = await databases.listDocuments(
+      databaseId,
+      appwriteConfig.roadmapHistoryCollectionId,
+      [Query.equal("userId", userId), Query.orderDesc("createdAt")],
+    );
+    return response.documents as RoadmapHistory[];
+  }
+
+  async getRoadmapById(roadmapId: string): Promise<RoadmapHistory> {
+    return (await databases.getDocument(
+      databaseId,
+      appwriteConfig.roadmapHistoryCollectionId,
+      roadmapId,
+    )) as RoadmapHistory;
+  }
+
+  async updateRoadmap(
+    roadmapId: string,
+    data: Partial<RoadmapHistory>,
+  ): Promise<RoadmapHistory> {
+    return (await databases.updateDocument(
+      databaseId,
+      appwriteConfig.roadmapHistoryCollectionId,
+      roadmapId,
+      data,
+    )) as RoadmapHistory;
+  }
+
+  async deleteRoadmap(roadmapId: string): Promise<void> {
+    await databases.deleteDocument(
+      databaseId,
+      appwriteConfig.roadmapHistoryCollectionId,
+      roadmapId,
+    );
+  }
+
+  async deleteAllUserRoadmaps(userId: string): Promise<void> {
+    const roadmaps = await this.getRoadmaps(userId);
+    for (const roadmap of roadmaps) {
+      if (roadmap.$id) {
+        await this.deleteRoadmap(roadmap.$id);
+      }
+    }
+  }
+
+  // ========== TUTOR HISTORY ==========
+  async createTutorEntry(entry: Omit<TutorHistory, "$id">): Promise<TutorHistory> {
+    return await databases.createDocument(
+      databaseId,
+      appwriteConfig.tutorHistoryCollectionId,
+      ID.unique(),
+      entry,
+    );
+  }
+
+  async getTutorEntries(userId: string): Promise<TutorHistory[]> {
+    const response = await databases.listDocuments(
+      databaseId,
+      appwriteConfig.tutorHistoryCollectionId,
+      [Query.equal("userId", userId), Query.orderDesc("createdAt")],
+    );
+    return response.documents as TutorHistory[];
+  }
+
+  async getTutorEntryById(entryId: string): Promise<TutorHistory> {
+    return (await databases.getDocument(
+      databaseId,
+      appwriteConfig.tutorHistoryCollectionId,
+      entryId,
+    )) as TutorHistory;
+  }
+
+  async updateTutorEntry(
+    entryId: string,
+    data: Partial<TutorHistory>,
+  ): Promise<TutorHistory> {
+    return (await databases.updateDocument(
+      databaseId,
+      appwriteConfig.tutorHistoryCollectionId,
+      entryId,
+      data,
+    )) as TutorHistory;
+  }
+
+  async deleteTutorEntry(entryId: string): Promise<void> {
+    await databases.deleteDocument(
+      databaseId,
+      appwriteConfig.tutorHistoryCollectionId,
+      entryId,
+    );
+  }
+
+  async deleteAllUserTutorEntries(userId: string): Promise<void> {
+    const entries = await this.getTutorEntries(userId);
+    for (const entry of entries) {
+      if (entry.$id) {
+        await this.deleteTutorEntry(entry.$id);
       }
     }
   }

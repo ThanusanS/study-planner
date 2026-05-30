@@ -1,0 +1,13 @@
+{
+  "name": "stripe-webhook",
+  "version": "1.0.0",
+  "description": "Appwrite serverless function to securely fulfill Stripe subscriptions",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"No tests specified\""
+  },
+  "dependencies": {
+    "stripe": "^14.0.0",
+    "node-appwrite": "^13.0.0"
+  }
+}
