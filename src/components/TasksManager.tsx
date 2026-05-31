@@ -91,6 +91,37 @@ export const TasksManager: React.FC<TasksManagerProps> = ({
     "all" | "pending" | "completed"
   >("all");
   const [filterSubject, setFilterSubject] = useState<string>("all");
+  const [showFilters, setShowFilters] = useState(false);
+
+  const activeFiltersCount = useMemo(() => {
+    return [
+      filterStatus !== "all",
+      filterSubject !== "all",
+      filterPriority !== "all",
+      filterDateFrom !== "",
+      filterDateTo !== "",
+      filterArchived,
+      searchQuery.trim() !== "",
+    ].filter(Boolean).length;
+  }, [
+    filterStatus,
+    filterSubject,
+    filterPriority,
+    filterDateFrom,
+    filterDateTo,
+    filterArchived,
+    searchQuery,
+  ]);
+
+  const handleClearFilters = () => {
+    setFilterStatus("all");
+    setFilterSubject("all");
+    setFilterPriority("all");
+    setFilterDateFrom("");
+    setFilterDateTo("");
+    setFilterArchived(false);
+    setSearchQuery("");
+  };
 
   const parseLocalDate = (dateString: string) => parseISO(dateString);
 
@@ -806,111 +837,138 @@ export const TasksManager: React.FC<TasksManagerProps> = ({
 
       {/* Filters */}
       <Card>
-        <CardHeader>
-          <CardTitle className="text-lg flex items-center gap-2">
-            <Filter className="h-5 w-5" />
-            Filters
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          <div className="space-y-2 sm:col-span-2">
-            <Label htmlFor="task-search">Search</Label>
-            <Input
-              id="task-search"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search title, notes, tags"
-            />
-          </div>
-          <div className="space-y-2">
-            <Label>Status</Label>
-            <Select
-              value={filterStatus}
-              onValueChange={(value: any) => setFilterStatus(value)}
-            >
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Tasks</SelectItem>
-                <SelectItem value="pending">Pending</SelectItem>
-                <SelectItem value="completed">Completed</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="space-y-2">
-            <Label>Subject</Label>
-            <Select value={filterSubject} onValueChange={setFilterSubject}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Subjects</SelectItem>
-                {subjects.map((subject) => (
-                  <SelectItem key={subject.$id} value={subject.$id!}>
-                    {subject.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="space-y-2">
-            <Label>Priority</Label>
-            <Select value={filterPriority} onValueChange={setFilterPriority}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Priorities</SelectItem>
-                <SelectItem value="high">High</SelectItem>
-                <SelectItem value="medium">Medium</SelectItem>
-                <SelectItem value="low">Low</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="date-from">From</Label>
-            <Input
-              id="date-from"
-              type="date"
-              value={filterDateFrom}
-              onChange={(e) => setFilterDateFrom(e.target.value)}
-            />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="date-to">To</Label>
-            <Input
-              id="date-to"
-              type="date"
-              value={filterDateTo}
-              onChange={(e) => setFilterDateTo(e.target.value)}
-            />
-          </div>
-          <div className="space-y-2">
-            <Label>Sort</Label>
-            <Select value={sortOption} onValueChange={setSortOption}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="dueDate">Due Date</SelectItem>
-                <SelectItem value="createdAt">Created Date</SelectItem>
-                <SelectItem value="priority">Priority</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="flex items-end gap-3">
-            <div>
-              <Label>Show archived</Label>
-              <div className="mt-2">
-                <Switch
-                  checked={filterArchived}
-                  onCheckedChange={setFilterArchived}
-                />
-              </div>
+        <CardHeader className="py-4 cursor-pointer hover:bg-accent/20 select-none transition-colors" onClick={() => setShowFilters(!showFilters)}>
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-base flex items-center gap-2">
+              <Filter className="h-5 w-5 text-indigo-500" />
+              <span>Filters</span>
+              {activeFiltersCount > 0 && (
+                <Badge variant="secondary" className="text-xs font-semibold px-2 py-0.5 bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border-indigo-500/20">
+                  {activeFiltersCount} Active
+                </Badge>
+              )}
+            </CardTitle>
+            <div className="flex items-center gap-2">
+              {activeFiltersCount > 0 && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleClearFilters();
+                  }}
+                  className="h-8 px-2 font-medium text-xs text-muted-foreground hover:text-foreground"
+                >
+                  Clear All
+                </Button>
+              )}
+              <Button variant="ghost" size="sm" className="h-8 px-2 font-semibold text-xs">
+                {showFilters ? "Hide" : "Show"}
+              </Button>
             </div>
           </div>
-        </CardContent>
+        </CardHeader>
+        {showFilters && (
+          <CardContent className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <div className="space-y-2 sm:col-span-2">
+              <Label htmlFor="task-search">Search</Label>
+              <Input
+                id="task-search"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search title, notes, tags"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Status</Label>
+              <Select
+                value={filterStatus}
+                onValueChange={(value: any) => setFilterStatus(value)}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Tasks</SelectItem>
+                  <SelectItem value="pending">Pending</SelectItem>
+                  <SelectItem value="completed">Completed</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>Subject</Label>
+              <Select value={filterSubject} onValueChange={setFilterSubject}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Subjects</SelectItem>
+                  {subjects.map((subject) => (
+                    <SelectItem key={subject.$id} value={subject.$id!}>
+                      {subject.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>Priority</Label>
+              <Select value={filterPriority} onValueChange={setFilterPriority}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Priorities</SelectItem>
+                  <SelectItem value="high">High</SelectItem>
+                  <SelectItem value="medium">Medium</SelectItem>
+                  <SelectItem value="low">Low</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="date-from">From</Label>
+              <Input
+                id="date-from"
+                type="date"
+                value={filterDateFrom}
+                onChange={(e) => setFilterDateFrom(e.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="date-to">To</Label>
+              <Input
+                id="date-to"
+                type="date"
+                value={filterDateTo}
+                onChange={(e) => setFilterDateTo(e.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Sort</Label>
+              <Select value={sortOption} onValueChange={setSortOption}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="dueDate">Due Date</SelectItem>
+                  <SelectItem value="createdAt">Created Date</SelectItem>
+                  <SelectItem value="priority">Priority</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex items-end gap-3">
+              <div>
+                <Label>Show archived</Label>
+                <div className="mt-2">
+                  <Switch
+                    checked={filterArchived}
+                    onCheckedChange={setFilterArchived}
+                  />
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        )}
       </Card>
 
       <Card>

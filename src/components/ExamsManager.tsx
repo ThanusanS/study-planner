@@ -45,6 +45,7 @@ import {
   AlertCircle,
   Clock,
   Pencil,
+  Filter,
 } from "lucide-react";
 import {
   format,
@@ -79,6 +80,34 @@ export const ExamsManager: React.FC<ExamsManagerProps> = ({
   const [filterTo, setFilterTo] = useState("");
   const [sortOption, setSortOption] = useState("examDate");
   const [filterArchived, setFilterArchived] = useState(false);
+  const [showFilters, setShowFilters] = useState(false);
+
+  const activeFiltersCount = useMemo(() => {
+    return [
+      filterSubject !== "all",
+      filterStatus !== "all",
+      filterFrom !== "",
+      filterTo !== "",
+      filterArchived,
+      searchQuery.trim() !== "",
+    ].filter(Boolean).length;
+  }, [
+    filterSubject,
+    filterStatus,
+    filterFrom,
+    filterTo,
+    filterArchived,
+    searchQuery,
+  ]);
+
+  const handleClearFilters = () => {
+    setFilterSubject("all");
+    setFilterStatus("all");
+    setFilterFrom("");
+    setFilterTo("");
+    setFilterArchived(false);
+    setSearchQuery("");
+  };
   const [selectedExamIds, setSelectedExamIds] = useState<string[]>([]);
   const [bulkDate, setBulkDate] = useState("");
   const [calendarDate, setCalendarDate] = useState<Date | undefined>(
@@ -624,90 +653,120 @@ export const ExamsManager: React.FC<ExamsManagerProps> = ({
       </Dialog>
 
       <Card>
-        <CardHeader>
-          <CardTitle className="text-lg">Filters</CardTitle>
-        </CardHeader>
-        <CardContent className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          <div className="space-y-2 sm:col-span-2">
-            <Label htmlFor="exam-search">Search</Label>
-            <Input
-              id="exam-search"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search name, notes, location"
-            />
-          </div>
-          <div className="space-y-2">
-            <Label>Subject</Label>
-            <Select value={filterSubject} onValueChange={setFilterSubject}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Subjects</SelectItem>
-                {subjects.map((subject) => (
-                  <SelectItem key={subject.$id} value={subject.$id!}>
-                    {subject.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="space-y-2">
-            <Label>Status</Label>
-            <Select value={filterStatus} onValueChange={setFilterStatus}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All</SelectItem>
-                <SelectItem value="upcoming">Upcoming</SelectItem>
-                <SelectItem value="past">Past</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="exam-from">From</Label>
-            <Input
-              id="exam-from"
-              type="date"
-              value={filterFrom}
-              onChange={(e) => setFilterFrom(e.target.value)}
-            />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="exam-to">To</Label>
-            <Input
-              id="exam-to"
-              type="date"
-              value={filterTo}
-              onChange={(e) => setFilterTo(e.target.value)}
-            />
-          </div>
-          <div className="space-y-2">
-            <Label>Sort</Label>
-            <Select value={sortOption} onValueChange={setSortOption}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="examDate">Exam Date</SelectItem>
-                <SelectItem value="urgency">Urgency</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="flex items-end gap-3">
-            <div>
-              <Label>Show archived</Label>
-              <div className="mt-2">
-                <Switch
-                  checked={filterArchived}
-                  onCheckedChange={setFilterArchived}
-                />
-              </div>
+        <CardHeader className="py-4 cursor-pointer hover:bg-accent/20 select-none transition-colors" onClick={() => setShowFilters(!showFilters)}>
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-base flex items-center gap-2">
+              <Filter className="h-5 w-5 text-indigo-500" />
+              <span>Filters</span>
+              {activeFiltersCount > 0 && (
+                <Badge variant="secondary" className="text-xs font-semibold px-2 py-0.5 bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border-indigo-500/20">
+                  {activeFiltersCount} Active
+                </Badge>
+              )}
+            </CardTitle>
+            <div className="flex items-center gap-2">
+              {activeFiltersCount > 0 && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleClearFilters();
+                  }}
+                  className="h-8 px-2 font-medium text-xs text-muted-foreground hover:text-foreground"
+                >
+                  Clear All
+                </Button>
+              )}
+              <Button variant="ghost" size="sm" className="h-8 px-2 font-semibold text-xs">
+                {showFilters ? "Hide" : "Show"}
+              </Button>
             </div>
           </div>
-        </CardContent>
+        </CardHeader>
+        {showFilters && (
+          <CardContent className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <div className="space-y-2 sm:col-span-2">
+              <Label htmlFor="exam-search">Search</Label>
+              <Input
+                id="exam-search"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search name, notes, location"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Subject</Label>
+              <Select value={filterSubject} onValueChange={setFilterSubject}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Subjects</SelectItem>
+                  {subjects.map((subject) => (
+                    <SelectItem key={subject.$id} value={subject.$id!}>
+                      {subject.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>Status</Label>
+              <Select value={filterStatus} onValueChange={setFilterStatus}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All</SelectItem>
+                  <SelectItem value="upcoming">Upcoming</SelectItem>
+                  <SelectItem value="past">Past</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="exam-from">From</Label>
+              <Input
+                id="exam-from"
+                type="date"
+                value={filterFrom}
+                onChange={(e) => setFilterFrom(e.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="exam-to">To</Label>
+              <Input
+                id="exam-to"
+                type="date"
+                value={filterTo}
+                onChange={(e) => setFilterTo(e.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Sort</Label>
+              <Select value={sortOption} onValueChange={setSortOption}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="examDate">Exam Date</SelectItem>
+                  <SelectItem value="urgency">Urgency</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex items-end gap-3">
+              <div>
+                <Label>Show archived</Label>
+                <div className="mt-2">
+                  <Switch
+                    checked={filterArchived}
+                    onCheckedChange={setFilterArchived}
+                  />
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        )}
       </Card>
 
       <Card>
