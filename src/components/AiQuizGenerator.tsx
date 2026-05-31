@@ -378,8 +378,11 @@ export const AiQuizGenerator: React.FC = () => {
   // ══════════════════════════════════════════════
   // PDF DOWNLOAD
   // ══════════════════════════════════════════════
-  const downloadPDF = () => {
-    if (!result) return;
+  const downloadPDF = (quiz?: QuizHistory) => {
+    const isQuizObj = quiz && typeof quiz === "object" && "quizContent" in quiz;
+    const actualQuiz = isQuizObj ? quiz : undefined;
+    const content = actualQuiz ? actualQuiz.quizContent : result;
+    if (!content) return;
 
     try {
       const doc = new jsPDF({ unit: "mm", format: "a4" });
@@ -391,6 +394,11 @@ export const AiQuizGenerator: React.FC = () => {
       const isEval = mode === "evaluate";
       const title = isEval ? "Answer Evaluation" : "Quiz Paper";
       let y = 0;
+
+      const rTopic = actualQuiz ? actualQuiz.topic : topic;
+      const rDifficulty = actualQuiz ? actualQuiz.difficulty : difficulty;
+      const rQuestionCount = actualQuiz ? actualQuiz.questionCount : questionCount;
+      const rQuestionType = actualQuiz ? actualQuiz.questionType : questionType;
 
       const blue = { r: 37, g: 99, b: 235 };
       const darkBlue = { r: 30, g: 58, b: 138 };
@@ -436,8 +444,10 @@ export const AiQuizGenerator: React.FC = () => {
 
           doc.setTextColor(220, 230, 255);
           doc.setFontSize(8);
+          
+          const createdDate = actualQuiz ? new Date(actualQuiz.createdAt) : new Date();
           doc.text(
-            new Date().toLocaleDateString("en-US", {
+            createdDate.toLocaleDateString("en-US", {
               year: "numeric",
               month: "long",
               day: "numeric",
@@ -447,7 +457,7 @@ export const AiQuizGenerator: React.FC = () => {
             { align: "right" }
           );
           doc.text(
-            new Date().toLocaleTimeString("en-US", {
+            createdDate.toLocaleTimeString("en-US", {
               hour: "2-digit",
               minute: "2-digit",
             }),
@@ -461,7 +471,7 @@ export const AiQuizGenerator: React.FC = () => {
           doc.setFontSize(10);
           doc.setFont("helvetica", "bold");
           doc.setTextColor(gray900.r, gray900.g, gray900.b);
-          const topicLabel = topic.trim() || "General";
+          const topicLabel = rTopic.trim() || "General";
           const topicLines = doc.splitTextToSize(topicLabel, contentW);
           doc.text(topicLines, marginL, y);
           y += topicLines.length * 5 + 2;
@@ -469,9 +479,9 @@ export const AiQuizGenerator: React.FC = () => {
           doc.setFont("helvetica", "normal");
           doc.setFontSize(7.5);
           const badges = [
-            `Difficulty: ${difficulty}`,
-            `${questionCount} Questions`,
-            `Type: ${questionType.toUpperCase()}`,
+            `Difficulty: ${rDifficulty}`,
+            `${rQuestionCount} Questions`,
+            `Type: ${rQuestionType.toUpperCase()}`,
           ];
           let badgeX = marginL;
           for (const badge of badges) {
@@ -513,7 +523,7 @@ export const AiQuizGenerator: React.FC = () => {
 
       drawHeader(true);
 
-      const lines = result.split("\n");
+      const lines = content.split("\n");
 
       for (let i = 0; i < lines.length; i++) {
         const line = lines[i];
@@ -658,8 +668,14 @@ export const AiQuizGenerator: React.FC = () => {
 
       drawFooters();
 
+      const dateStr = actualQuiz 
+        ? new Date(actualQuiz.createdAt).toISOString().split("T")[0] 
+        : new Date().toISOString().split("T")[0];
+
+      const rMode = actualQuiz ? "generate" : mode;
+
       doc.save(
-        `quiz-${mode}-${topic.trim().replace(/\s+/g, "-").toLowerCase() || "quiz"}-${new Date().toISOString().split("T")[0]}.pdf`
+        `quiz-${rMode}-${rTopic.trim().replace(/\s+/g, "-").toLowerCase() || "quiz"}-${dateStr}.pdf`
       );
       toast.success("PDF downloaded successfully!");
     } catch (err) {
@@ -945,7 +961,7 @@ export const AiQuizGenerator: React.FC = () => {
                 </Button>
               )}
               <Button
-                onClick={downloadPDF}
+                onClick={() => downloadPDF()}
                 variant="outline"
                 size="sm"
                 disabled={!result}
@@ -1176,33 +1192,42 @@ export const AiQuizGenerator: React.FC = () => {
                                 ? "Collapse"
                                 : "View"}
                             </Button>
-                            <Button
-                              onClick={() => retakeQuiz(quiz)}
-                              variant="outline"
-                              size="sm"
-                              className="gap-1.5 sm:gap-2 flex-1 sm:flex-none text-xs sm:text-sm"
-                            >
-                              <RotateCcw className="w-4 h-4" />
-                              Retake
-                            </Button>
-                            <Button
-                              onClick={() => startEditQuiz(quiz)}
-                              variant="outline"
-                              size="sm"
-                              className="gap-1.5 sm:gap-2 flex-1 sm:flex-none text-xs sm:text-sm"
-                            >
-                              <Pencil className="w-4 h-4" />
-                              Edit
-                            </Button>
-                            <Button
-                              onClick={() => requestDeleteQuiz(quiz)}
-                              variant="outline"
-                              size="sm"
-                              className="gap-1.5 sm:gap-2 flex-1 sm:flex-none text-xs sm:text-sm text-destructive hover:text-destructive"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                              Delete
-                            </Button>
+                             <Button
+                               onClick={() => retakeQuiz(quiz)}
+                               variant="outline"
+                               size="sm"
+                               className="gap-1.5 sm:gap-2 flex-1 sm:flex-none text-xs sm:text-sm"
+                             >
+                               <RotateCcw className="w-4 h-4" />
+                               Retake
+                             </Button>
+                             <Button
+                               onClick={() => startEditQuiz(quiz)}
+                               variant="outline"
+                               size="sm"
+                               className="gap-1.5 sm:gap-2 flex-1 sm:flex-none text-xs sm:text-sm"
+                             >
+                               <Pencil className="w-4 h-4" />
+                               Edit
+                             </Button>
+                             <Button
+                               onClick={() => downloadPDF(quiz)}
+                               variant="outline"
+                               size="sm"
+                               className="gap-1.5 sm:gap-2 flex-1 sm:flex-none text-xs sm:text-sm"
+                             >
+                               <Download className="w-4 h-4" />
+                               Download
+                             </Button>
+                             <Button
+                               onClick={() => requestDeleteQuiz(quiz)}
+                               variant="outline"
+                               size="sm"
+                               className="gap-1.5 sm:gap-2 flex-1 sm:flex-none text-xs sm:text-sm text-destructive hover:text-destructive"
+                             >
+                               <Trash2 className="w-4 h-4" />
+                               Delete
+                             </Button>
                           </div>
                         </div>
 

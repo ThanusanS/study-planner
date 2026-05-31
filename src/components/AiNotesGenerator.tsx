@@ -294,8 +294,11 @@ export const AiNotesGenerator: React.FC = () => {
   // ══════════════════════════════════════════════
   // PDF DOWNLOAD — Beautiful styled notes PDF
   // ══════════════════════════════════════════════
-  const downloadPDF = () => {
-    if (!result) return;
+  const downloadPDF = (note?: NotesHistory) => {
+    const isNoteObj = note && typeof note === "object" && "notesContent" in note;
+    const actualNote = isNoteObj ? note : undefined;
+    const content = actualNote ? actualNote.notesContent : result;
+    if (!content) return;
 
     try {
       const doc = new jsPDF({ unit: "mm", format: "a4" });
@@ -304,7 +307,12 @@ export const AiNotesGenerator: React.FC = () => {
       const marginL = 18;
       const marginR = 18;
       const contentW = pageW - marginL - marginR;
-      const isShort = mode === "short";
+      
+      const rTopic = actualNote ? actualNote.topic : topic;
+      const rSubject = actualNote ? (actualNote.subject || "") : subject;
+      const rType = actualNote ? actualNote.noteType : (mode as "short" | "full");
+
+      const isShort = rType === "short";
       const title = isShort ? "Quick Revision Notes" : "Detailed Study Notes";
       let y = 0;
 
@@ -366,8 +374,10 @@ export const AiNotesGenerator: React.FC = () => {
           // Date
           doc.setTextColor(220, 240, 255);
           doc.setFontSize(8);
+          
+          const createdDate = actualNote ? new Date(actualNote.createdAt) : new Date();
           doc.text(
-            new Date().toLocaleDateString("en-US", {
+            createdDate.toLocaleDateString("en-US", {
               year: "numeric",
               month: "long",
               day: "numeric",
@@ -377,7 +387,7 @@ export const AiNotesGenerator: React.FC = () => {
             { align: "right" }
           );
           doc.text(
-            new Date().toLocaleTimeString("en-US", {
+            createdDate.toLocaleTimeString("en-US", {
               hour: "2-digit",
               minute: "2-digit",
             }),
@@ -392,7 +402,7 @@ export const AiNotesGenerator: React.FC = () => {
           doc.setFontSize(11);
           doc.setFont("helvetica", "bold");
           doc.setTextColor(gray900.r, gray900.g, gray900.b);
-          const topicLabel = topic.trim() || "General Notes";
+          const topicLabel = rTopic.trim() || "General Notes";
           const topicLines = doc.splitTextToSize(topicLabel, contentW);
           doc.text(topicLines, marginL, y);
           y += topicLines.length * 5 + 2;
@@ -402,8 +412,8 @@ export const AiNotesGenerator: React.FC = () => {
           doc.setFontSize(7.5);
           const badges = [
             `Type: ${isShort ? "Short Notes" : "Full Notes"}`,
-            ...(subject.trim() ? [`Subject: ${subject.trim()}`] : []),
-            `Generated: ${new Date().toLocaleDateString()}`,
+            ...(rSubject.trim() ? [`Subject: ${rSubject.trim()}`] : []),
+            `Generated: ${createdDate.toLocaleDateString()}`,
           ];
           let badgeX = marginL;
           for (const badge of badges) {
@@ -449,7 +459,7 @@ export const AiNotesGenerator: React.FC = () => {
       drawHeader(true);
 
       // ── Process content lines ──
-      const lines = result.split("\n");
+      const lines = content.split("\n");
 
       for (let i = 0; i < lines.length; i++) {
         const line = lines[i];
@@ -583,8 +593,12 @@ export const AiNotesGenerator: React.FC = () => {
       drawFooters();
 
       // ── Save ──
+      const dateStr = actualNote 
+        ? new Date(actualNote.createdAt).toISOString().split("T")[0] 
+        : new Date().toISOString().split("T")[0];
+
       doc.save(
-        `notes-${mode}-${topic.trim().replace(/\s+/g, "-").toLowerCase()}-${new Date().toISOString().split("T")[0]}.pdf`
+        `notes-${rType}-${rTopic.trim().replace(/\s+/g, "-").toLowerCase()}-${dateStr}.pdf`
       );
       toast.success("PDF downloaded successfully!");
     } catch (err) {
@@ -859,7 +873,7 @@ export const AiNotesGenerator: React.FC = () => {
                 </Button>
               )}
               <Button
-                onClick={downloadPDF}
+                onClick={() => downloadPDF()}
                 variant="outline"
                 size="sm"
                 disabled={!result}
@@ -1065,24 +1079,33 @@ export const AiNotesGenerator: React.FC = () => {
                                 ? "Collapse"
                                 : "View"}
                             </Button>
-                            <Button
-                              onClick={() => startEditNote(note)}
-                              variant="outline"
-                              size="sm"
-                              className="gap-1.5 sm:gap-2 flex-1 sm:flex-none text-xs sm:text-sm"
-                            >
-                              <Pencil className="w-4 h-4" />
-                              Edit
-                            </Button>
-                            <Button
-                              onClick={() => requestDeleteNote(note)}
-                              variant="outline"
-                              size="sm"
-                              className="gap-1.5 sm:gap-2 flex-1 sm:flex-none text-xs sm:text-sm text-destructive hover:text-destructive"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                              Delete
-                            </Button>
+                             <Button
+                               onClick={() => startEditNote(note)}
+                               variant="outline"
+                               size="sm"
+                               className="gap-1.5 sm:gap-2 flex-1 sm:flex-none text-xs sm:text-sm"
+                             >
+                               <Pencil className="w-4 h-4" />
+                               Edit
+                             </Button>
+                             <Button
+                               onClick={() => downloadPDF(note)}
+                               variant="outline"
+                               size="sm"
+                               className="gap-1.5 sm:gap-2 flex-1 sm:flex-none text-xs sm:text-sm"
+                             >
+                               <Download className="w-4 h-4" />
+                               Download
+                             </Button>
+                             <Button
+                               onClick={() => requestDeleteNote(note)}
+                               variant="outline"
+                               size="sm"
+                               className="gap-1.5 sm:gap-2 flex-1 sm:flex-none text-xs sm:text-sm text-destructive hover:text-destructive"
+                             >
+                               <Trash2 className="w-4 h-4" />
+                               Delete
+                             </Button>
                           </div>
                         </div>
 

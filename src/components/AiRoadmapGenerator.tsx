@@ -330,8 +330,11 @@ export const AiRoadmapGenerator: React.FC = () => {
   // ══════════════════════════════════════════════
   // PDF DOWNLOAD — Beautiful styled roadmap PDF
   // ══════════════════════════════════════════════
-  const downloadPDF = () => {
-    if (!result) return;
+  const downloadPDF = (roadmap?: RoadmapHistory) => {
+    const isRoadmapObj = roadmap && typeof roadmap === "object" && "roadmapContent" in roadmap;
+    const actualRoadmap = isRoadmapObj ? roadmap : undefined;
+    const content = actualRoadmap ? actualRoadmap.roadmapContent : result;
+    if (!content) return;
 
     try {
       const doc = new jsPDF({ unit: "mm", format: "a4" });
@@ -340,7 +343,14 @@ export const AiRoadmapGenerator: React.FC = () => {
       const marginL = 18;
       const marginR = 18;
       const contentW = pageW - marginL - marginR;
-      const isQuick = mode === "quick";
+      
+      const rGoal = actualRoadmap ? actualRoadmap.goal : goal;
+      const rLevel = actualRoadmap ? (actualRoadmap.level || "") : level;
+      const rDuration = actualRoadmap ? (actualRoadmap.duration || "") : duration;
+      const rSubject = actualRoadmap ? (actualRoadmap.subject || "") : subject;
+      const rType = actualRoadmap ? actualRoadmap.roadmapType : (mode as "quick" | "detailed");
+
+      const isQuick = rType === "quick";
       const title = isQuick ? "Quick Study Roadmap" : "Detailed Study Roadmap";
       let y = 0;
 
@@ -395,8 +405,10 @@ export const AiRoadmapGenerator: React.FC = () => {
 
           doc.setTextColor(220, 240, 255);
           doc.setFontSize(8);
+          
+          const createdDate = actualRoadmap ? new Date(actualRoadmap.createdAt) : new Date();
           doc.text(
-            new Date().toLocaleDateString("en-US", {
+            createdDate.toLocaleDateString("en-US", {
               year: "numeric",
               month: "long",
               day: "numeric",
@@ -406,7 +418,7 @@ export const AiRoadmapGenerator: React.FC = () => {
             { align: "right" }
           );
           doc.text(
-            new Date().toLocaleTimeString("en-US", {
+            createdDate.toLocaleTimeString("en-US", {
               hour: "2-digit",
               minute: "2-digit",
             }),
@@ -420,7 +432,7 @@ export const AiRoadmapGenerator: React.FC = () => {
           doc.setFontSize(11);
           doc.setFont("helvetica", "bold");
           doc.setTextColor(gray900.r, gray900.g, gray900.b);
-          const goalLabel = goal.trim() || "Study Roadmap";
+          const goalLabel = rGoal.trim() || "Study Roadmap";
           const goalLines = doc.splitTextToSize(goalLabel, contentW);
           doc.text(goalLines, marginL, y);
           y += goalLines.length * 5 + 2;
@@ -429,9 +441,9 @@ export const AiRoadmapGenerator: React.FC = () => {
           doc.setFontSize(7.5);
           const badges = [
             `Type: ${isQuick ? "Quick Roadmap" : "Detailed Roadmap"}`,
-            ...(level.trim() ? [`Level: ${level.trim()}`] : []),
-            ...(duration.trim() ? [`Duration: ${duration.trim()}`] : []),
-            ...(subject.trim() ? [`Subject: ${subject.trim()}`] : []),
+            ...(rLevel.trim() ? [`Level: ${rLevel.trim()}`] : []),
+            ...(rDuration.trim() ? [`Duration: ${rDuration.trim()}`] : []),
+            ...(rSubject.trim() ? [`Subject: ${rSubject.trim()}`] : []),
           ];
           let badgeX = marginL;
           for (const badge of badges) {
@@ -477,7 +489,7 @@ export const AiRoadmapGenerator: React.FC = () => {
 
       drawHeader(true);
 
-      const lines = result.split("\n");
+      const lines = content.split("\n");
 
       for (let i = 0; i < lines.length; i++) {
         const line = lines[i];
@@ -619,8 +631,12 @@ export const AiRoadmapGenerator: React.FC = () => {
 
       drawFooters();
 
+      const dateStr = actualRoadmap 
+        ? new Date(actualRoadmap.createdAt).toISOString().split("T")[0] 
+        : new Date().toISOString().split("T")[0];
+
       doc.save(
-        `roadmap-${mode}-${goal.trim().replace(/\s+/g, "-").toLowerCase()}-${new Date().toISOString().split("T")[0]}.pdf`
+        `roadmap-${rType}-${rGoal.trim().replace(/\s+/g, "-").toLowerCase()}-${dateStr}.pdf`
       );
       toast.success("PDF downloaded successfully!");
     } catch (err) {
@@ -954,7 +970,7 @@ export const AiRoadmapGenerator: React.FC = () => {
                 </Button>
               )}
               <Button
-                onClick={downloadPDF}
+                onClick={() => downloadPDF()}
                 variant="outline"
                 size="sm"
                 disabled={!result}
@@ -1193,6 +1209,15 @@ export const AiRoadmapGenerator: React.FC = () => {
                             >
                               <Pencil className="w-4 h-4" />
                               Edit
+                            </Button>
+                            <Button
+                              onClick={() => downloadPDF(roadmap)}
+                              variant="outline"
+                              size="sm"
+                              className="gap-1.5 sm:gap-2 flex-1 sm:flex-none text-xs sm:text-sm"
+                            >
+                              <Download className="w-4 h-4" />
+                              Download
                             </Button>
                             <Button
                               onClick={() => requestDeleteRoadmap(roadmap)}

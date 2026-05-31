@@ -331,8 +331,11 @@ export const AiTutorExplain: React.FC = () => {
   // ══════════════════════════════════════════════
   // PDF DOWNLOAD
   // ══════════════════════════════════════════════
-  const downloadPDF = () => {
-    if (!result) return;
+  const downloadPDF = (entry?: TutorHistory) => {
+    const isEntryObj = entry && typeof entry === "object" && "tutorContent" in entry;
+    const actualEntry = isEntryObj ? entry : undefined;
+    const content = actualEntry ? actualEntry.tutorContent : result;
+    if (!content) return;
     try {
       const doc = new jsPDF({ unit: "mm", format: "a4" });
       const pageW = doc.internal.pageSize.getWidth();
@@ -340,12 +343,18 @@ export const AiTutorExplain: React.FC = () => {
       const marginL = 18;
       const marginR = 18;
       const contentW = pageW - marginL - marginR;
+      
+      const rTopic = actualEntry ? actualEntry.topic : topic;
+      const rSubject = actualEntry ? (actualEntry.subject || "") : subject;
+      const rLevel = actualEntry ? (actualEntry.level || "") : level;
+      const rType = actualEntry ? actualEntry.explainType : (mode as "simple" | "deep" | "doubt");
+
       const modeLabels: Record<string, string> = {
         simple: "Simple Explanation",
         deep: "Deep Explanation",
         doubt: "Doubt Solved",
       };
-      const title = modeLabels[mode] || "AI Tutor";
+      const title = modeLabels[rType] || "AI Tutor";
       let y = 0;
 
       // Colors
@@ -366,9 +375,9 @@ export const AiTutorExplain: React.FC = () => {
       const amberBg = { r: 255, g: 251, b: 235 };
       const greenBg = { r: 240, g: 253, b: 244 };
 
-      const primary = mode === "deep" ? indigo : rose;
-      const primaryDark = mode === "deep" ? darkIndigo : darkRose;
-      const primaryBg = mode === "deep" ? indigoBg : roseBg;
+      const primary = rType === "deep" ? indigo : rose;
+      const primaryDark = rType === "deep" ? darkIndigo : darkRose;
+      const primaryBg = rType === "deep" ? indigoBg : roseBg;
 
       const ensureSpace = (needed: number) => {
         if (y + needed > pageH - 22) {
@@ -400,8 +409,10 @@ export const AiTutorExplain: React.FC = () => {
 
           doc.setTextColor(220, 240, 255);
           doc.setFontSize(8);
+          
+          const createdDate = actualEntry ? new Date(actualEntry.createdAt) : new Date();
           doc.text(
-            new Date().toLocaleDateString("en-US", {
+            createdDate.toLocaleDateString("en-US", {
               year: "numeric",
               month: "long",
               day: "numeric",
@@ -417,7 +428,7 @@ export const AiTutorExplain: React.FC = () => {
           doc.setFont("helvetica", "bold");
           doc.setTextColor(gray900.r, gray900.g, gray900.b);
           const topicLabel =
-            mode === "doubt" ? doubt.trim() : topic.trim() || "General";
+            rType === "doubt" ? rTopic.trim() : rTopic.trim() || "General";
           const topicLines = doc.splitTextToSize(topicLabel, contentW);
           doc.text(topicLines, marginL, y);
           y += topicLines.length * 5 + 2;
@@ -426,8 +437,8 @@ export const AiTutorExplain: React.FC = () => {
           doc.setFontSize(7.5);
           const badges = [
             `Mode: ${title}`,
-            ...(level.trim() ? [`Level: ${level.trim()}`] : []),
-            ...(subject.trim() ? [`Subject: ${subject.trim()}`] : []),
+            ...(rLevel.trim() ? [`Level: ${rLevel.trim()}`] : []),
+            ...(rSubject.trim() ? [`Subject: ${rSubject.trim()}`] : []),
           ];
           let badgeX = marginL;
           for (const badge of badges) {
@@ -472,7 +483,7 @@ export const AiTutorExplain: React.FC = () => {
 
       drawHeader(true);
 
-      const lines = result.split("\n");
+      const lines = content.split("\n");
       for (let i = 0; i < lines.length; i++) {
         const trimmed = lines[i].trim();
         if (!trimmed) {
@@ -610,10 +621,13 @@ export const AiTutorExplain: React.FC = () => {
 
       drawFooters();
 
-      const fileName =
-        mode === "doubt" ? doubt.trim() : topic.trim() || "explanation";
+      const dateStr = actualEntry 
+        ? new Date(actualEntry.createdAt).toISOString().split("T")[0] 
+        : new Date().toISOString().split("T")[0];
+
+      const fileName = rTopic.trim() || "explanation";
       doc.save(
-        `tutor-${mode}-${fileName.replace(/\s+/g, "-").toLowerCase()}-${new Date().toISOString().split("T")[0]}.pdf`
+        `tutor-${rType}-${fileName.replace(/\s+/g, "-").toLowerCase()}-${dateStr}.pdf`
       );
       toast.success("PDF downloaded successfully!");
     } catch (err) {
@@ -1019,7 +1033,7 @@ export const AiTutorExplain: React.FC = () => {
                 </Button>
               )}
               <Button
-                onClick={downloadPDF}
+                onClick={() => downloadPDF()}
                 variant="outline"
                 size="sm"
                 disabled={!result}
@@ -1224,6 +1238,15 @@ export const AiTutorExplain: React.FC = () => {
                             >
                               <Pencil className="w-4 h-4" />
                               Edit
+                            </Button>
+                            <Button
+                              onClick={() => downloadPDF(entry)}
+                              variant="outline"
+                              size="sm"
+                              className="gap-1.5 sm:gap-2 flex-1 sm:flex-none text-xs sm:text-sm"
+                            >
+                              <Download className="w-4 h-4" />
+                              Download
                             </Button>
                             <Button
                               onClick={() => requestDeleteEntry(entry)}
