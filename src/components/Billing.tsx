@@ -326,7 +326,7 @@ export const Billing: React.FC = () => {
           </div>
         </div>
 
-        <div className="grid gap-6 md:grid-cols-3">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           {/* Plan 1: Free */}
           <Card className={`relative overflow-hidden border transition-all ${currentPlan === "free" ? "border-slate-400/40 bg-white/5" : "border-border/60"}`}>
             {currentPlan === "free" && (
@@ -480,7 +480,7 @@ export const Billing: React.FC = () => {
       </div>
 
       {/* ─── CREDITS WARNING SYSTEM / ESTIMATOR ─── */}
-      <div className="grid gap-6 md:grid-cols-2">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {/* Estimator calculator */}
         <Card className="border-border/60">
           <CardHeader>
@@ -581,8 +581,8 @@ export const Billing: React.FC = () => {
           <CardDescription className="text-xs">Real-time ledger audit log showing how credits were securely deducted</CardDescription>
         </CardHeader>
         <CardContent className="p-4 pt-0">
-          <div className="overflow-x-auto w-full">
-            <table className="w-full text-xs text-left">
+          <div className="overflow-x-auto w-full border border-border/45 rounded-2xl">
+            <table className="w-full text-xs text-left min-w-[600px]">
               <thead>
                 <tr className="border-b border-border/80 text-muted-foreground uppercase font-bold text-[9px] tracking-wider">
                   <th className="py-2.5 px-3">Transaction ID</th>
@@ -677,7 +677,7 @@ export const Billing: React.FC = () => {
                       }}
                       className="w-full text-sm px-4 py-3 rounded-2xl border border-border bg-background focus:outline-none focus:ring-1 focus:ring-indigo-500 font-medium pl-10"
                     />
-                    <CreditCard className="w-4 h-4 text-muted-foreground absolute left-4.5 top-1/2 -translate-y-1/2" />
+                    <CreditCard className="w-4 h-4 text-muted-foreground absolute left-3.5 top-1/2 -translate-y-1/2" />
                   </div>
                 </div>
 

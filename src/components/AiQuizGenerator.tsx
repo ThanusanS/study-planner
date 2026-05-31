@@ -49,6 +49,128 @@ import { useAuth } from "../contexts/AuthContext";
 import { toast } from "sonner";
 import jsPDF from "jspdf";
 
+// Helper to parse markdown bold/italic segments
+const parseMarkdownSegments = (text: string): { text: string; bold: boolean }[] => {
+  const segments: { text: string; bold: boolean }[] = [];
+  const regex = /(\*\*.*?\*\*|\*.*?\*)/g;
+  const parts = text.split(regex);
+  for (const part of parts) {
+    if (part.startsWith("**") && part.endsWith("**")) {
+      segments.push({ text: part.slice(2, -2), bold: true });
+    } else if (part.startsWith("*") && part.endsWith("*")) {
+      segments.push({ text: part.slice(1, -1), bold: true });
+    } else {
+      segments.push({ text: part, bold: false });
+    }
+  }
+  return segments;
+};
+
+// Helper to wrap segments into lines of a maximum width
+const wrapSegments = (
+  doc: jsPDF,
+  segments: { text: string; bold: boolean }[],
+  contentWidth: number,
+  baseFontName: string,
+  baseFontSize: number
+): { text: string; bold: boolean }[][] => {
+  const lines: { text: string; bold: boolean }[][] = [];
+  let currentLine: { text: string; bold: boolean }[] = [];
+  let currentLineWidth = 0;
+
+  for (const seg of segments) {
+    if (!seg.text) currentLine.push({ text: " ", bold: false });
+
+    // Split segment into words, preserving spaces
+    const words = seg.text.split(/(\s+)/);
+
+    for (const word of words) {
+      if (!word) continue;
+
+      doc.setFont(baseFontName, seg.bold ? "bold" : "normal");
+      doc.setFontSize(baseFontSize);
+      const wordWidth = doc.getTextWidth(word);
+
+      if (currentLineWidth + wordWidth > contentWidth) {
+        if (/^\s+$/.test(word)) continue; // skip leading space
+
+        lines.push(currentLine);
+        currentLine = [{ text: word, bold: seg.bold }];
+        currentLineWidth = wordWidth;
+      } else {
+        currentLine.push({ text: word, bold: seg.bold });
+        currentLineWidth += wordWidth;
+      }
+    }
+  }
+
+  if (currentLine.length > 0) {
+    lines.push(currentLine);
+  }
+
+  return lines;
+};
+
+// Main helper to render paragraphs with inline markdown and emoji cleaning
+const drawWrappedMarkdown = (
+  doc: jsPDF,
+  paragraph: string,
+  startX: number,
+  startY: number,
+  contentWidth: number,
+  lineHeight: number,
+  baseFontName: string,
+  baseFontSize: number,
+  baseColor: { r: number; g: number; b: number },
+  boldColor: { r: number; g: number; b: number },
+  pageHeight: number,
+  addPage: () => void
+): number => {
+  const cleanPara = paragraph
+    // Remove emojis
+    .replace(/[\u{1F600}-\u{1F64F}\u{1F300}-\u{1F5FF}\u{1F680}-\u{1F6FF}\u{1F700}-\u{1F7FF}\u{1F900}-\u{1F9FF}\u{1FA00}-\u{1FAFF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}\u{2B50}\u{2934}\u{2935}\u{2190}-\u{21FF}]/gu, "")
+    // Remove non-standard unicode characters
+    .replace(/[^\x00-\x7F\u00A0-\u00FF\u2013\u2014\u2022]/g, "");
+
+  const segments = parseMarkdownSegments(cleanPara);
+  const wrappedLines = wrapSegments(doc, segments, contentWidth, baseFontName, baseFontSize);
+
+  let currentY = startY;
+
+  for (const line of wrappedLines) {
+    if (currentY + lineHeight > pageHeight - 22) {
+      addPage();
+      currentY = 20;
+    }
+    
+    let currentX = startX;
+
+    for (const seg of line) {
+      doc.setFont(baseFontName, seg.bold ? "bold" : "normal");
+      doc.setFontSize(baseFontSize);
+      doc.setTextColor(
+        seg.bold ? boldColor.r : baseColor.r,
+        seg.bold ? boldColor.g : baseColor.g,
+        seg.bold ? boldColor.b : baseColor.b
+      );
+      doc.text(seg.text, currentX, currentY);
+      currentX += doc.getTextWidth(seg.text);
+    }
+
+    currentY += lineHeight;
+  }
+
+  return currentY;
+};
+
+// Helper to clean emojis from text headers
+const cleanText = (text: string) => {
+  if (!text) return "";
+  return text
+    .replace(/[\u{1F600}-\u{1F64F}\u{1F300}-\u{1F5FF}\u{1F680}-\u{1F6FF}\u{1F700}-\u{1F7FF}\u{1F900}-\u{1F9FF}\u{1FA00}-\u{1FAFF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}\u{2B50}\u{2934}\u{2935}\u{2190}-\u{21FF}]/gu, "")
+    .replace(/[^\x00-\x7F\u00A0-\u00FF\u2013\u2014\u2022]/g, "");
+};
+
 export const AiQuizGenerator: React.FC = () => {
   const { user } = useAuth();
   const [activePlan, setActivePlan] = useState<UserPlan | null>(null);
@@ -536,7 +658,8 @@ export const AiQuizGenerator: React.FC = () => {
         if (/^Q\d+[.:]/.test(trimmed)) {
           ensureSpace(16);
           if (y > 55) y += 3;
-          const qLines = doc.splitTextToSize(trimmed, contentW - 10);
+          const cleanQ = cleanText(trimmed);
+          const qLines = doc.splitTextToSize(cleanQ, contentW - 10);
           const blockH = qLines.length * 5 + 5;
           doc.setFillColor(blueBg.r, blueBg.g, blueBg.b);
           doc.roundedRect(marginL, y - 4, contentW, blockH, 1.5, 1.5, "F");
@@ -552,20 +675,30 @@ export const AiQuizGenerator: React.FC = () => {
 
         if (/^[A-Da-d][).]\s/.test(trimmed)) {
           ensureSpace(7);
-          doc.setFont("helvetica", "normal");
-          doc.setFontSize(9.5);
-          doc.setTextColor(gray700.r, gray700.g, gray700.b);
           doc.setFillColor(gray300.r, gray300.g, gray300.b);
           doc.circle(marginL + 6, y - 1, 1.2, "F");
-          const optLines = doc.splitTextToSize(trimmed, contentW - 14);
-          doc.text(optLines, marginL + 10, y);
-          y += optLines.length * 4.5 + 1.5;
+          
+          y = drawWrappedMarkdown(
+            doc,
+            trimmed,
+            marginL + 10,
+            y,
+            contentW - 14,
+            4.5,
+            "helvetica",
+            9.5,
+            gray700,
+            gray900,
+            pageH,
+            () => doc.addPage()
+          );
           continue;
         }
 
         if (/^Score:/i.test(trimmed)) {
           ensureSpace(14);
           y += 2;
+          const cleanScore = cleanText(trimmed);
           doc.setFillColor(greenBg.r, greenBg.g, greenBg.b);
           doc.roundedRect(marginL, y - 5, contentW, 10, 2, 2, "F");
           doc.setFillColor(green600.r, green600.g, green600.b);
@@ -573,7 +706,7 @@ export const AiQuizGenerator: React.FC = () => {
           doc.setFont("helvetica", "bold");
           doc.setFontSize(12);
           doc.setTextColor(green600.r, green600.g, green600.b);
-          doc.text(trimmed, marginL + 5, y + 1);
+          doc.text(cleanScore, marginL + 5, y + 1);
           y += 12;
           continue;
         }
@@ -594,6 +727,8 @@ export const AiQuizGenerator: React.FC = () => {
               ? redBg
               : { r: 255, g: 251, b: 235 };
 
+          const cleanResultStr = cleanText(trimmed);
+
           doc.setFillColor(bg.r, bg.g, bg.b);
           doc.roundedRect(
             marginL + 4,
@@ -607,7 +742,7 @@ export const AiQuizGenerator: React.FC = () => {
           doc.setFont("helvetica", "bold");
           doc.setFontSize(9);
           doc.setTextColor(color.r, color.g, color.b);
-          doc.text(trimmed, marginL + 7, y);
+          doc.text(cleanResultStr, marginL + 7, y);
           y += 7;
           continue;
         }
@@ -622,7 +757,8 @@ export const AiQuizGenerator: React.FC = () => {
           doc.setFont("helvetica", "bold");
           doc.setFontSize(9.5);
           doc.setTextColor(gray900.r, gray900.g, gray900.b);
-          const sLines = doc.splitTextToSize(trimmed, contentW - 4);
+          const cleanLabel = cleanText(trimmed);
+          const sLines = doc.splitTextToSize(cleanLabel, contentW - 4);
           doc.text(sLines, marginL + 2, y);
           y += sLines.length * 4.5 + 2;
           continue;
@@ -630,27 +766,40 @@ export const AiQuizGenerator: React.FC = () => {
 
         if (/^[-•]\s/.test(trimmed)) {
           ensureSpace(7);
-          doc.setFont("helvetica", "normal");
-          doc.setFontSize(9);
-          doc.setTextColor(gray700.r, gray700.g, gray700.b);
           doc.setFillColor(blue.r, blue.g, blue.b);
           doc.circle(marginL + 5, y - 1, 0.8, "F");
-          const bLines = doc.splitTextToSize(
+
+          y = drawWrappedMarkdown(
+            doc,
             trimmed.replace(/^[-•]\s*/, ""),
-            contentW - 12
+            marginL + 9,
+            y,
+            contentW - 12,
+            4.5,
+            "helvetica",
+            9,
+            gray700,
+            gray900,
+            pageH,
+            () => doc.addPage()
           );
-          doc.text(bLines, marginL + 9, y);
-          y += bLines.length * 4.5 + 1.5;
           continue;
         }
 
-        ensureSpace(7);
-        doc.setFont("helvetica", "normal");
-        doc.setFontSize(9.5);
-        doc.setTextColor(gray700.r, gray700.g, gray700.b);
-        const wrapped = doc.splitTextToSize(trimmed, contentW - 4);
-        doc.text(wrapped, marginL + 2, y);
-        y += wrapped.length * 4.5 + 1.5;
+        y = drawWrappedMarkdown(
+          doc,
+          trimmed,
+          marginL + 2,
+          y,
+          contentW - 4,
+          4.5,
+          "helvetica",
+          9.5,
+          gray700,
+          gray900,
+          pageH,
+          () => doc.addPage()
+        );
       }
 
       const total = doc.getNumberOfPages();
@@ -733,7 +882,7 @@ export const AiQuizGenerator: React.FC = () => {
         onValueChange={handleModeChange}
         className="space-y-4"
       >
-        <TabsList className="w-full sm:w-auto">
+        <TabsList className="w-full sm:w-auto flex-wrap h-auto p-1">
           <TabsTrigger value="generate" className="gap-1.5">
             <Sparkles className="h-3.5 w-3.5" />
             Quiz Generation
@@ -746,7 +895,7 @@ export const AiQuizGenerator: React.FC = () => {
 
         {/* ─── GENERATE TAB ─── */}
         <TabsContent value="generate">
-          <div className="grid gap-4 lg:grid-cols-[1.2fr_0.8fr]">
+          <div className="grid grid-cols-1 lg:grid-cols-[1.2fr_0.8fr] gap-4">
             <Card className="border-border/60">
               <CardHeader>
                 <CardTitle>Generate a Quiz</CardTitle>
@@ -948,7 +1097,7 @@ export const AiQuizGenerator: React.FC = () => {
                 {questionCount} questions • {questionType.toUpperCase()}
               </CardDescription>
             </div>
-            <div className="flex gap-2 w-full sm:w-auto">
+            <div className="flex flex-wrap gap-2 w-full sm:w-auto">
               {mode === "generate" && user && (
                 <Button
                   onClick={() => saveQuiz()}
@@ -1035,7 +1184,7 @@ export const AiQuizGenerator: React.FC = () => {
                     {editingQuizId === quiz.$id ? (
                       /* ── Edit Mode ── */
                       <div className="space-y-3">
-                        <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-4">
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
                           <div className="space-y-1">
                             <label className="text-xs font-medium text-muted-foreground">
                               Topic
@@ -1174,7 +1323,7 @@ export const AiQuizGenerator: React.FC = () => {
                               </span>
                             </div>
                           </div>
-                          <div className="flex flex-wrap gap-1.5 sm:gap-2 w-full sm:w-auto">
+                          <div className="grid grid-cols-2 sm:flex sm:flex-row gap-1.5 sm:gap-2 w-full sm:w-auto">
                             <Button
                               onClick={() =>
                                 setExpandedQuizId(

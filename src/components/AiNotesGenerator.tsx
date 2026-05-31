@@ -49,6 +49,128 @@ import { useAuth } from "../contexts/AuthContext";
 import { toast } from "sonner";
 import jsPDF from "jspdf";
 
+// Helper to parse markdown bold/italic segments
+const parseMarkdownSegments = (text: string): { text: string; bold: boolean }[] => {
+  const segments: { text: string; bold: boolean }[] = [];
+  const regex = /(\*\*.*?\*\*|\*.*?\*)/g;
+  const parts = text.split(regex);
+  for (const part of parts) {
+    if (part.startsWith("**") && part.endsWith("**")) {
+      segments.push({ text: part.slice(2, -2), bold: true });
+    } else if (part.startsWith("*") && part.endsWith("*")) {
+      segments.push({ text: part.slice(1, -1), bold: true });
+    } else {
+      segments.push({ text: part, bold: false });
+    }
+  }
+  return segments;
+};
+
+// Helper to wrap segments into lines of a maximum width
+const wrapSegments = (
+  doc: jsPDF,
+  segments: { text: string; bold: boolean }[],
+  contentWidth: number,
+  baseFontName: string,
+  baseFontSize: number
+): { text: string; bold: boolean }[][] => {
+  const lines: { text: string; bold: boolean }[][] = [];
+  let currentLine: { text: string; bold: boolean }[] = [];
+  let currentLineWidth = 0;
+
+  for (const seg of segments) {
+    if (!seg.text) currentLine.push({ text: " ", bold: false });
+
+    // Split segment into words, preserving spaces
+    const words = seg.text.split(/(\s+)/);
+
+    for (const word of words) {
+      if (!word) continue;
+
+      doc.setFont(baseFontName, seg.bold ? "bold" : "normal");
+      doc.setFontSize(baseFontSize);
+      const wordWidth = doc.getTextWidth(word);
+
+      if (currentLineWidth + wordWidth > contentWidth) {
+        if (/^\s+$/.test(word)) continue; // skip leading space
+
+        lines.push(currentLine);
+        currentLine = [{ text: word, bold: seg.bold }];
+        currentLineWidth = wordWidth;
+      } else {
+        currentLine.push({ text: word, bold: seg.bold });
+        currentLineWidth += wordWidth;
+      }
+    }
+  }
+
+  if (currentLine.length > 0) {
+    lines.push(currentLine);
+  }
+
+  return lines;
+};
+
+// Main helper to render paragraphs with inline markdown and emoji cleaning
+const drawWrappedMarkdown = (
+  doc: jsPDF,
+  paragraph: string,
+  startX: number,
+  startY: number,
+  contentWidth: number,
+  lineHeight: number,
+  baseFontName: string,
+  baseFontSize: number,
+  baseColor: { r: number; g: number; b: number },
+  boldColor: { r: number; g: number; b: number },
+  pageHeight: number,
+  addPage: () => void
+): number => {
+  const cleanPara = paragraph
+    // Remove emojis
+    .replace(/[\u{1F600}-\u{1F64F}\u{1F300}-\u{1F5FF}\u{1F680}-\u{1F6FF}\u{1F700}-\u{1F7FF}\u{1F900}-\u{1F9FF}\u{1FA00}-\u{1FAFF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}\u{2B50}\u{2934}\u{2935}\u{2190}-\u{21FF}]/gu, "")
+    // Remove non-standard unicode characters
+    .replace(/[^\x00-\x7F\u00A0-\u00FF\u2013\u2014\u2022]/g, "");
+
+  const segments = parseMarkdownSegments(cleanPara);
+  const wrappedLines = wrapSegments(doc, segments, contentWidth, baseFontName, baseFontSize);
+
+  let currentY = startY;
+
+  for (const line of wrappedLines) {
+    if (currentY + lineHeight > pageHeight - 22) {
+      addPage();
+      currentY = 20;
+    }
+    
+    let currentX = startX;
+
+    for (const seg of line) {
+      doc.setFont(baseFontName, seg.bold ? "bold" : "normal");
+      doc.setFontSize(baseFontSize);
+      doc.setTextColor(
+        seg.bold ? boldColor.r : baseColor.r,
+        seg.bold ? boldColor.g : baseColor.g,
+        seg.bold ? boldColor.b : baseColor.b
+      );
+      doc.text(seg.text, currentX, currentY);
+      currentX += doc.getTextWidth(seg.text);
+    }
+
+    currentY += lineHeight;
+  }
+
+  return currentY;
+};
+
+// Helper to clean emojis from text headers
+const cleanText = (text: string) => {
+  if (!text) return "";
+  return text
+    .replace(/[\u{1F600}-\u{1F64F}\u{1F300}-\u{1F5FF}\u{1F680}-\u{1F6FF}\u{1F700}-\u{1F7FF}\u{1F900}-\u{1F9FF}\u{1FA00}-\u{1FAFF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}\u{2B50}\u{2934}\u{2935}\u{2190}-\u{21FF}]/gu, "")
+    .replace(/[^\x00-\x7F\u00A0-\u00FF\u2013\u2014\u2022]/g, "");
+};
+
 export const AiNotesGenerator: React.FC = () => {
   const { user } = useAuth();
   const [activePlan, setActivePlan] = useState<UserPlan | null>(null);
@@ -478,12 +600,11 @@ export const AiNotesGenerator: React.FC = () => {
           ensureSpace(14);
           if (y > 55) y += 4;
 
-          // Section header block
-          const hLines = doc.splitTextToSize(trimmed, contentW - 10);
+          const cleanHeading = cleanText(trimmed);
+          const hLines = doc.splitTextToSize(cleanHeading, contentW - 10);
           const blockH = hLines.length * 5 + 5;
           doc.setFillColor(primaryBg.r, primaryBg.g, primaryBg.b);
           doc.roundedRect(marginL, y - 4, contentW, blockH, 1.5, 1.5, "F");
-          // Accent bar
           doc.setFillColor(primary.r, primary.g, primary.b);
           doc.roundedRect(marginL, y - 4, 1.5, blockH, 0.7, 0.7, "F");
 
@@ -500,7 +621,8 @@ export const AiNotesGenerator: React.FC = () => {
           ensureSpace(12);
           y += 2;
 
-          const numLines = doc.splitTextToSize(trimmed, contentW - 10);
+          const cleanConcept = cleanText(trimmed);
+          const numLines = doc.splitTextToSize(cleanConcept, contentW - 10);
           const blockH = numLines.length * 5 + 4;
           doc.setFillColor(gray100.r, gray100.g, gray100.b);
           doc.roundedRect(marginL, y - 4, contentW, blockH, 1.5, 1.5, "F");
@@ -518,18 +640,23 @@ export const AiNotesGenerator: React.FC = () => {
         // --- Bullet points (- or •) ---
         if (/^[-•]\s/.test(trimmed)) {
           ensureSpace(7);
-          doc.setFont("helvetica", "normal");
-          doc.setFontSize(9.5);
-          doc.setTextColor(gray700.r, gray700.g, gray700.b);
-          // Colored bullet dot
           doc.setFillColor(primary.r, primary.g, primary.b);
           doc.circle(marginL + 5, y - 1, 1, "F");
-          const bLines = doc.splitTextToSize(
+
+          y = drawWrappedMarkdown(
+            doc,
             trimmed.replace(/^[-•]\s*/, ""),
-            contentW - 14
+            marginL + 9,
+            y,
+            contentW - 14,
+            4.5,
+            "helvetica",
+            9.5,
+            gray700,
+            gray900,
+            pageH,
+            () => doc.addPage()
           );
-          doc.text(bLines, marginL + 9, y);
-          y += bLines.length * 4.5 + 2;
           continue;
         }
 
@@ -537,7 +664,7 @@ export const AiNotesGenerator: React.FC = () => {
         if (/^[-•]?\s*[A-Z][\w\s]+:/.test(trimmed) && trimmed.includes(":")) {
           ensureSpace(8);
           const colonIdx = trimmed.indexOf(":");
-          const term = trimmed.slice(0, colonIdx + 1);
+          const term = cleanText(trimmed.slice(0, colonIdx + 1));
           const definition = trimmed.slice(colonIdx + 1).trim();
 
           // Highlight chip for term
@@ -551,14 +678,20 @@ export const AiNotesGenerator: React.FC = () => {
           doc.text(term, marginL + 7, y);
 
           if (definition) {
-            doc.setFont("helvetica", "normal");
-            doc.setTextColor(gray700.r, gray700.g, gray700.b);
-            const defLines = doc.splitTextToSize(
+            y = drawWrappedMarkdown(
+              doc,
               definition,
-              contentW - termW - 12
+              marginL + 7 + termW + 2,
+              y,
+              contentW - termW - 12,
+              4.5,
+              "helvetica",
+              9.5,
+              gray700,
+              gray900,
+              pageH,
+              () => doc.addPage()
             );
-            doc.text(defLines, marginL + 7 + termW + 2, y);
-            y += Math.max(defLines.length * 4.5, 5) + 2;
           } else {
             y += 6;
           }
@@ -566,13 +699,20 @@ export const AiNotesGenerator: React.FC = () => {
         }
 
         // --- Default text ---
-        ensureSpace(7);
-        doc.setFont("helvetica", "normal");
-        doc.setFontSize(9.5);
-        doc.setTextColor(gray700.r, gray700.g, gray700.b);
-        const wrapped = doc.splitTextToSize(trimmed, contentW - 4);
-        doc.text(wrapped, marginL + 2, y);
-        y += wrapped.length * 4.5 + 1.5;
+        y = drawWrappedMarkdown(
+          doc,
+          trimmed,
+          marginL + 2,
+          y,
+          contentW - 4,
+          4.5,
+          "helvetica",
+          9.5,
+          gray700,
+          gray900,
+          pageH,
+          () => doc.addPage()
+        );
       }
 
       // ── Continuation headers on pages 2+ ──
@@ -652,7 +792,7 @@ export const AiNotesGenerator: React.FC = () => {
 
       {/* Tabs: Short Notes / Full Notes */}
       <Tabs value={mode} onValueChange={setMode} className="space-y-4">
-        <TabsList className="w-full sm:w-auto">
+        <TabsList className="w-full sm:w-auto flex-wrap h-auto p-1">
           <TabsTrigger value="short" className="gap-1.5">
             <Zap className="h-3.5 w-3.5" />
             Short Notes
@@ -665,7 +805,7 @@ export const AiNotesGenerator: React.FC = () => {
 
         {/* ─── SHORT NOTES TAB ─── */}
         <TabsContent value="short">
-          <div className="grid gap-4 lg:grid-cols-[1.2fr_0.8fr]">
+          <div className="grid grid-cols-1 lg:grid-cols-[1.2fr_0.8fr] gap-4">
             <Card className="border-border/60">
               <CardHeader>
                 <CardTitle>Short Notes (Quick Revision)</CardTitle>
@@ -746,7 +886,7 @@ export const AiNotesGenerator: React.FC = () => {
 
         {/* ─── FULL NOTES TAB ─── */}
         <TabsContent value="full">
-          <div className="grid gap-4 lg:grid-cols-[1.2fr_0.8fr]">
+          <div className="grid grid-cols-1 lg:grid-cols-[1.2fr_0.8fr] gap-4">
             <Card className="border-border/60">
               <CardHeader>
                 <CardTitle>Full Notes (Detailed Learning)</CardTitle>
@@ -860,7 +1000,7 @@ export const AiNotesGenerator: React.FC = () => {
                 {topic.trim()} {subject.trim() ? `— ${subject.trim()}` : ""}
               </CardDescription>
             </div>
-            <div className="flex gap-2 w-full sm:w-auto">
+            <div className="flex flex-wrap gap-2 w-full sm:w-auto">
               {user && (
                 <Button
                   onClick={() => saveNote()}
@@ -1061,7 +1201,7 @@ export const AiNotesGenerator: React.FC = () => {
                               </span>
                             </div>
                           </div>
-                          <div className="flex flex-wrap gap-1.5 sm:gap-2 w-full sm:w-auto">
+                          <div className="grid grid-cols-2 sm:flex sm:flex-row gap-1.5 sm:gap-2 w-full sm:w-auto">
                             <Button
                               onClick={() =>
                                 setExpandedNoteId(
