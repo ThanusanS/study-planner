@@ -31,7 +31,8 @@ import {
   RotateCcw,
   Send,
   Coffee,
-  Crown
+  Crown,
+  Trash2
 } from "lucide-react";
 import planService, { UserPlan } from "../services/planService";
 import coStudyService, { StudyRoom, StudyRoomMessage, StudyRoomMember } from "../services/coStudyService";
@@ -102,6 +103,7 @@ export const CoStudyRooms: React.FC<{ onNavigateToBilling?: () => void }> = ({ o
   const unsubMsgRef = useRef<(() => void) | null>(null);
   const unsubMembersRef = useRef<(() => void) | null>(null);
   const unsubTimerRef = useRef<(() => void) | null>(null);
+  const isSendingRef = useRef(false);
 
   // Load User Plan and Rooms
   useEffect(() => {
@@ -321,8 +323,21 @@ export const CoStudyRooms: React.FC<{ onNavigateToBilling?: () => void }> = ({ o
       // 4. Register WebSocket/Event listeners for active updates
       unsubMsgRef.current = coStudyService.subscribeToMessages(room.$id!, (newMsg) => {
         setChatLogs(prev => {
-          // Avoid duplicate appends
           if (prev.some(m => m.$id === newMsg.$id)) return prev;
+
+          // Check if we have an optimistic temp message matching this message
+          const tempIdx = prev.findIndex(m => 
+            m.$id?.startsWith("temp-") && 
+            m.senderId === newMsg.senderId && 
+            m.message === newMsg.message
+          );
+
+          if (tempIdx !== -1) {
+            const updated = [...prev];
+            updated[tempIdx] = newMsg;
+            return updated;
+          }
+
           return [...prev, newMsg];
         });
       });
@@ -381,6 +396,25 @@ export const CoStudyRooms: React.FC<{ onNavigateToBilling?: () => void }> = ({ o
     }
   };
 
+  const handleDeleteRoom = async (roomId: string) => {
+    if (!roomId) return;
+    const confirmDelete = window.confirm("Are you sure you want to permanently delete this study room?");
+    if (!confirmDelete) return;
+
+    try {
+      if (joinedRoom && (joinedRoom.$id === roomId || (joinedRoom as any).id === roomId)) {
+        await handleLeaveRoom();
+      }
+
+      await coStudyService.deleteRoom(roomId);
+      toast.success("Study room deleted successfully.");
+      await loadRooms();
+    } catch (err: any) {
+      console.error("Failed to delete study room:", err);
+      toast.error(`Failed to delete room: ${err.message || err}`);
+    }
+  };
+
   // Clean up subscriptions on component unmount
   useEffect(() => {
     return () => {
@@ -434,20 +468,64 @@ export const CoStudyRooms: React.FC<{ onNavigateToBilling?: () => void }> = ({ o
 
   // Post chat message
   const handleSendMessage = async () => {
-    if (!typedMessage.trim() || !joinedRoom) return;
+    const messageText = typedMessage.trim();
+    if (!messageText || !joinedRoom || isSendingRef.current) return;
+
+    const tempId = `temp-${Date.now()}-${Math.random()}`;
+    const timestampStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    
+    const tempMsg: StudyRoomMessage = {
+      $id: tempId,
+      roomId: joinedRoom.$id!,
+      senderId: userId,
+      senderName: userName,
+      message: messageText,
+      timestamp: timestampStr
+    };
+
+    // Optimistically update input and chat logs
+    setTypedMessage("");
+    setChatLogs(prev => [...prev, tempMsg]);
+    isSendingRef.current = true;
 
     try {
-      await coStudyService.sendMessage({
+      const sentMsg = await coStudyService.sendMessage({
         roomId: joinedRoom.$id!,
         senderId: userId,
         senderName: userName,
-        message: typedMessage.trim(),
-        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+        message: messageText,
+        timestamp: timestampStr
       });
-      setTypedMessage("");
+
+      if (sentMsg) {
+        setChatLogs(prev => {
+          const hasReal = prev.some(m => m.$id === sentMsg.$id);
+          const tempIdx = prev.findIndex(m => m.$id === tempId);
+
+          if (tempIdx !== -1) {
+            const updated = [...prev];
+            if (hasReal) {
+              updated.splice(tempIdx, 1);
+            } else {
+              updated[tempIdx] = sentMsg;
+            }
+            return updated;
+          }
+
+          if (!hasReal) {
+            return [...prev, sentMsg];
+          }
+          return prev;
+        });
+      }
     } catch (err) {
       console.error("Message send failed:", err);
-      toast.error("Message failed to send.");
+      toast.error("Failed to send message.");
+      // Rollback optimistic append
+      setChatLogs(prev => prev.filter(m => m.$id !== tempId));
+      setTypedMessage(messageText);
+    } finally {
+      isSendingRef.current = false;
     }
   };
 
@@ -537,13 +615,28 @@ export const CoStudyRooms: React.FC<{ onNavigateToBilling?: () => void }> = ({ o
                   <div className="absolute top-0 inset-x-0 h-[3px] bg-gradient-to-r from-indigo-500 to-purple-600 opacity-60" />
                   <CardHeader className="pb-3 pt-5">
                     <div className="flex items-center justify-between gap-2">
-                      <Badge variant="outline" className="text-[9px] font-black uppercase px-2 py-0.5 tracking-wider border-emerald-500/20 bg-emerald-500/5 text-emerald-600 dark:text-emerald-400">
-                        🟢 Active Focus
-                      </Badge>
-                      {room.isPrivate && (
-                        <Badge variant="outline" className="text-[9px] font-black uppercase px-2 py-0.5 border-purple-500/20 bg-purple-500/5 text-purple-600 dark:text-purple-400 gap-1">
-                          <Lock className="w-2.5 h-2.5" /> Private
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <Badge variant="outline" className="text-[9px] font-black uppercase px-2 py-0.5 tracking-wider border-emerald-500/20 bg-emerald-500/5 text-emerald-600 dark:text-emerald-400">
+                          🟢 Active Focus
                         </Badge>
+                        {room.isPrivate && (
+                          <Badge variant="outline" className="text-[9px] font-black uppercase px-2 py-0.5 border-purple-500/20 bg-purple-500/5 text-purple-600 dark:text-purple-400 gap-1">
+                            <Lock className="w-2.5 h-2.5" /> Private
+                          </Badge>
+                        )}
+                      </div>
+                      {room.creatorId === userId && room.creatorId !== "system" && (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleDeleteRoom(room.$id || "");
+                          }}
+                          className="h-7 w-7 text-muted-foreground hover:text-red-500 hover:bg-red-500/10 rounded-lg cursor-pointer transition-colors"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
                       )}
                     </div>
                     <CardTitle className="text-base font-extrabold mt-3.5 text-foreground leading-snug">{room.name}</CardTitle>
@@ -621,6 +714,15 @@ export const CoStudyRooms: React.FC<{ onNavigateToBilling?: () => void }> = ({ o
                 <PlusCircle className="w-4 h-4 animate-bounce" />
                 Invite Friends
               </Button>
+              {joinedRoom.creatorId === userId && joinedRoom.creatorId !== "system" && (
+                <Button
+                  onClick={() => handleDeleteRoom(joinedRoom.$id || "")}
+                  className="bg-red-600 hover:bg-red-700 text-white font-extrabold text-xs h-9 rounded-xl gap-1.5 cursor-pointer transition-all flex items-center px-4.5"
+                >
+                  <Trash2 className="w-4 h-4" />
+                  Delete Room
+                </Button>
+              )}
               <Badge variant="outline" className="h-9 px-3.5 text-xs font-black bg-indigo-500/5 text-indigo-600 dark:text-indigo-400 border-indigo-500/30 select-none animate-pulse">
                 👥 {peers.length + 1} studying
               </Badge>

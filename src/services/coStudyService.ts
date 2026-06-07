@@ -263,6 +263,7 @@ class CoStudyService {
         return;
       } catch (err) {
         console.error("Failed to delete room in Appwrite:", err);
+        throw err;
       }
     }
 
