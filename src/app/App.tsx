@@ -13,6 +13,7 @@ import { AiRoadmapGenerator } from "../components/AiRoadmapGenerator";
 import { AiTutorExplain } from "../components/AiTutorExplain";
 import { OnboardingGuide } from "../components/OnboardingGuide";
 import { Billing } from "../components/Billing";
+import { AiDocumentHub } from "../components/AiDocumentHub";
 import { PomodoroProvider } from "../contexts/PomodoroContext";
 import { Button } from "./components/ui/button";
 import { Toaster } from "./components/ui/sonner";
@@ -35,6 +36,7 @@ import {
   Sun,
   Menu,
   X,
+  FileUp,
 } from "lucide-react";
 import { useTheme } from "next-themes";
 
@@ -50,7 +52,8 @@ type Page =
   | "ai-notes"
   | "ai-roadmap"
   | "ai-tutor"
-  | "billing";
+  | "billing"
+  | "ai-doc-hub";
 
 const Sidebar: React.FC<{
   currentPage: Page;
@@ -90,6 +93,7 @@ const Sidebar: React.FC<{
     { id: "tasks" as Page, label: "Tasks", icon: CheckSquare },
     { id: "exams" as Page, label: "Exams", icon: Calendar },
     { id: "pomodoro" as Page, label: "Pomodoro", icon: Timer },
+    { id: "ai-doc-hub" as Page, label: "AI Doc Hub", icon: FileUp },
     { id: "ai-quiz" as Page, label: "AI Quiz", icon: Sparkles },
     { id: "ai-notes" as Page, label: "AI Notes", icon: FileText },
     { id: "ai-roadmap" as Page, label: "AI Roadmap", icon: Map },
@@ -438,6 +442,7 @@ const AppContent: React.FC = () => {
             <ExamsManager onOnboardingProgress={loadOnboardingStatus} />
           )}
           {currentPage === "pomodoro" && <PomodoroTimer />}
+          {currentPage === "ai-doc-hub" && <AiDocumentHub />}
           {currentPage === "ai-quiz" && <AiQuizGenerator />}
           {currentPage === "ai-notes" && <AiNotesGenerator />}
           {currentPage === "ai-roadmap" && <AiRoadmapGenerator />}
