@@ -7,6 +7,7 @@ import databaseService, {
   Subject,
   QuizHistory,
 } from "../services/databaseService";
+import coStudyService, { StudyRoom } from "../services/coStudyService";
 import {
   Card,
   CardContent,
@@ -31,6 +32,7 @@ import {
   Award,
   Zap,
   Activity,
+  Users,
 } from "lucide-react";
 import { formatDistanceToNow, format, subDays } from "date-fns";
 import { toast } from "sonner";
@@ -63,6 +65,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
   );
   const [subjects, setSubjects] = useState<Subject[]>([]);
   const [quizzes, setQuizzes] = useState<QuizHistory[]>([]);
+  const [activeRooms, setActiveRooms] = useState<StudyRoom[]>([]);
   const [loading, setLoading] = useState(true);
 
   // Quick Task states
@@ -78,12 +81,27 @@ export const Dashboard: React.FC<DashboardProps> = ({
     }
   }, [user]);
 
+  useEffect(() => {
+    if (!user) return;
+    const resolvedUserId = user?.$id || (user as any)?.id;
+    if (!resolvedUserId) return;
+
+    // Subscribe to all study rooms updates in real-time
+    const unsubscribe = coStudyService.subscribeToRooms(() => {
+      coStudyService.getRooms(resolvedUserId).then(setActiveRooms).catch(console.error);
+    });
+
+    return () => {
+      unsubscribe();
+    };
+  }, [user]);
+
   const loadDashboardData = async () => {
     try {
       const resolvedUserId = user?.$id || (user as any)?.id;
       if (!resolvedUserId) return;
 
-      const [tasksData, examsData, pomodoroData, subjectsData, quizzesData] =
+      const [tasksData, examsData, pomodoroData, subjectsData, quizzesData, roomsData] =
         await Promise.all([
           databaseService.getTasks(resolvedUserId, 100),
           databaseService.getExams(resolvedUserId),
@@ -92,6 +110,9 @@ export const Dashboard: React.FC<DashboardProps> = ({
           databaseService
             .getQuizzes(resolvedUserId)
             .catch(() => [] as QuizHistory[]),
+          coStudyService
+            .getRooms(resolvedUserId)
+            .catch(() => [] as StudyRoom[]),
         ]);
 
       setTasks(tasksData);
@@ -99,6 +120,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
       setPomodoroSessions(pomodoroData);
       setSubjects(subjectsData);
       setQuizzes(quizzesData);
+      setActiveRooms(roomsData);
 
       // Auto-set the first subject for the quick task form
       if (subjectsData.length > 0) {
@@ -294,6 +316,19 @@ export const Dashboard: React.FC<DashboardProps> = ({
     } catch (error) {
       console.error("Error updating task:", error);
       toast.error("Failed to update task");
+    }
+  };
+
+  const handleJoinStudyRoom = (roomId: string) => {
+    if (typeof window !== "undefined") {
+      window.localStorage.setItem("study_planner_pending_join_room", roomId);
+      window.dispatchEvent(new CustomEvent("navigateToStudyPage", { detail: "co-study" }));
+    }
+  };
+
+  const handleNavigateToCoStudy = () => {
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new CustomEvent("navigateToStudyPage", { detail: "co-study" }));
     }
   };
 
@@ -700,8 +735,8 @@ export const Dashboard: React.FC<DashboardProps> = ({
         </Card>
       </div>
 
-      {/* Bento Grid: Today's Tasks, Quick Actions, and AI Quiz Insights */}
-      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+      {/* Bento Grid: Today's Tasks, Co-Study Rooms, AI Quiz Insights, and Exams */}
+      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
         {/* Bento Column 1: Today's Schedule + Quick task builder */}
         <Card className="border border-border/80 bg-card shadow-sm flex flex-col justify-between">
           <CardHeader className="pb-2">
@@ -828,7 +863,92 @@ export const Dashboard: React.FC<DashboardProps> = ({
           </CardContent>
         </Card>
 
-        {/* Bento Column 2: AI Quiz Studio Highlights */}
+        {/* Bento Column 2: Active Co-Study Rooms */}
+        <Card className="border border-border/80 bg-card shadow-sm flex flex-col justify-between">
+          <CardHeader className="pb-2">
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-base font-bold flex items-center gap-1.5">
+                <Users className="h-4.5 w-4.5 text-indigo-500" />
+                Co-Study Rooms
+              </CardTitle>
+              <Badge
+                variant="secondary"
+                className="bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-bold text-xs"
+              >
+                {activeRooms.filter(r => !r.isPrivate).length} Public
+              </Badge>
+            </div>
+            <CardDescription>
+              Study side-by-side with classmates in real-time
+            </CardDescription>
+          </CardHeader>
+
+          <CardContent className="p-4 pt-0 space-y-4 flex-1 flex flex-col justify-between">
+            <div className="space-y-2.5 overflow-y-auto max-h-60 flex-1 pr-1">
+              {activeRooms.filter(r => !r.isPrivate).length === 0 ? (
+                <div className="text-center py-8 text-muted-foreground text-xs space-y-1">
+                  <Users className="h-8 w-8 text-muted-foreground/30 mx-auto" />
+                  <p>No active public focus rooms.</p>
+                  <p className="text-[10px] text-muted-foreground/80">
+                    Be the first to launch one!
+                  </p>
+                </div>
+              ) : (
+                activeRooms
+                  .filter((r) => !r.isPrivate)
+                  .slice(0, 3)
+                  .map((room) => (
+                    <div
+                      key={room.$id}
+                      className="p-3 rounded-xl border border-border/60 bg-background/40 hover:border-indigo-500/30 transition-all flex items-center justify-between gap-3 group cursor-pointer"
+                      onClick={() => handleJoinStudyRoom(room.$id!)}
+                    >
+                      <div className="overflow-hidden">
+                        <div className="text-xs font-bold text-foreground truncate group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">
+                          {room.name}
+                        </div>
+                        <div className="flex items-center gap-2 mt-1 text-[10px] text-muted-foreground">
+                          <span className="text-emerald-500 font-bold flex items-center gap-1">
+                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping" />
+                            {room.membersCount} online
+                          </span>
+                          <span>•</span>
+                          <span className="truncate max-w-[120px]">{room.description}</span>
+                        </div>
+                      </div>
+                      <Badge
+                        variant="outline"
+                        className="text-[10px] border-indigo-500/20 text-indigo-600 dark:text-indigo-400 bg-indigo-500/5 hover:bg-indigo-600 hover:text-white font-bold shrink-0 transition-colors"
+                      >
+                        Join
+                      </Badge>
+                    </div>
+                  ))
+              )}
+            </div>
+
+            <div className="pt-3 border-t border-border/60 bg-indigo-500/5 dark:bg-indigo-950/20 p-3 rounded-xl flex items-center justify-between gap-3 mt-4">
+              <div>
+                <span className="text-[11px] font-bold text-indigo-600 dark:text-indigo-400 uppercase tracking-wider block">
+                  Want to host?
+                </span>
+                <span className="text-[10px] text-muted-foreground">
+                  Create a custom room space!
+                </span>
+              </div>
+              <Badge
+                className="bg-indigo-600 text-white shrink-0 py-1 cursor-pointer hover:bg-indigo-700 transition-colors flex items-center gap-1 text-xs"
+                onClick={() => handleNavigateToCoStudy()}
+                role="button"
+                tabIndex={0}
+              >
+                Open Lobby <ArrowRight className="h-3 w-3" />
+              </Badge>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Bento Column 3: AI Quiz Studio Highlights */}
         <Card className="border border-border/80 bg-card shadow-sm flex flex-col justify-between">
           <CardHeader>
             <div className="flex items-center justify-between">
@@ -916,7 +1036,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
           </CardContent>
         </Card>
 
-        {/* Bento Column 3: Exam Milestones & Countdown */}
+        {/* Bento Column 4: Exam Milestones & Countdown */}
         <Card className="border border-border/80 bg-card shadow-sm flex flex-col justify-between">
           <CardHeader>
             <CardTitle className="text-base font-bold">

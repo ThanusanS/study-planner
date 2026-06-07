@@ -24,6 +24,10 @@ export const appwriteConfig = {
   roadmapHistoryCollectionId: "roadmapHistory",
   // AI Tutor
   tutorHistoryCollectionId: "tutorHistory",
+  // Co-Study Rooms (Workable Real-time multiplayer)
+  studyRoomsCollectionId: "studyRooms",
+  studyRoomMessagesCollectionId: "studyRoomMessages",
+  studyRoomMembersCollectionId: "studyRoomMembers",
 };
 
 // Initialize Appwrite Client

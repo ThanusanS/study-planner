@@ -1,0 +1,1110 @@
+import React, { useState, useEffect, useRef } from "react";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "../app/components/ui/card";
+import { Button } from "../app/components/ui/button";
+import { Badge } from "../app/components/ui/badge";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "../app/components/ui/dialog";
+import {
+  Users,
+  Timer,
+  Volume2,
+  MessageSquare,
+  Sparkles,
+  Lock,
+  PlusCircle,
+  Tv,
+  ArrowLeft,
+  Play,
+  Pause,
+  RotateCcw,
+  Send,
+  Coffee,
+  Crown
+} from "lucide-react";
+import planService, { UserPlan } from "../services/planService";
+import coStudyService, { StudyRoom, StudyRoomMessage, StudyRoomMember } from "../services/coStudyService";
+import { useAuth } from "../contexts/AuthContext";
+import { toast } from "sonner";
+
+// Pre-defined YouTube Embed streams for Lofi/Ambient Music
+const LOFI_PRESETS = [
+  { id: "lofi-girl", name: "Lofi Girl Radio", url: "https://www.youtube.com/embed/live_stream?channel=UC5leBQw2lC9D5V7n_oGg01g&autoplay=1" },
+  { id: "synthwave", name: "Synthwave Radio", url: "https://www.youtube.com/embed/F3Hk1Q-8mXk?autoplay=1" },
+  { id: "piano", name: "Classical Study", url: "https://www.youtube.com/embed/z0ESIdRVkOg?autoplay=1" },
+  { id: "rain", name: "Rain Ambient", url: "https://www.youtube.com/embed/WJ3-F02-F_Y?autoplay=1" }
+];
+
+// Helper to extract 11-char Video ID from YouTube URLs
+const getYoutubeVideoId = (url: string): string => {
+  if (!url) return "";
+  const cleanUrl = url.trim();
+  if (cleanUrl.length === 11 && !cleanUrl.includes("/") && !cleanUrl.includes("?")) {
+    return cleanUrl;
+  }
+  const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=)([^#\&\?]*).*/;
+  const match = cleanUrl.match(regExp);
+  return (match && match[2].length === 11) ? match[2] : "";
+};
+
+export const CoStudyRooms: React.FC<{ onNavigateToBilling?: () => void }> = ({ onNavigateToBilling }) => {
+  const { user } = useAuth();
+  const userId = user?.$id || (user as any)?.id || "test-user";
+  const userName = user?.name || "Achiever Student";
+  
+  // Plans and billing gating
+  const [activePlan, setActivePlan] = useState<UserPlan | null>(null);
+  const [isGatingDialogOpen, setIsGatingDialogOpen] = useState(false);
+  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
+
+  // Active rooms lists
+  const [rooms, setRooms] = useState<StudyRoom[]>([]);
+  const [loadingRooms, setLoadingRooms] = useState(false);
+
+  // Create room form
+  const [newRoomName, setNewRoomName] = useState("");
+  const [newRoomDesc, setNewRoomDesc] = useState("");
+  const [newRoomPrivate, setNewRoomPrivate] = useState(false);
+
+  // Active room session
+  const [joinedRoom, setJoinedRoom] = useState<StudyRoom | null>(null);
+  const [musicPreset, setMusicPreset] = useState(LOFI_PRESETS[0]);
+  const [isMusicPlaying, setIsMusicPlaying] = useState(false);
+  const [customUrl, setCustomUrl] = useState("");
+  const [isCustomMode, setIsCustomMode] = useState(false);
+
+  // Pomodoro timer states inside joined room
+  const [minutes, setMinutes] = useState(25);
+  const [seconds, setSeconds] = useState(0);
+  const [timerActive, setTimerActive] = useState(false);
+  const [timerMode, setTimerMode] = useState<"work" | "break">("work");
+
+  // Chat log states
+  const [chatLogs, setChatLogs] = useState<StudyRoomMessage[]>([]);
+  const [typedMessage, setTypedMessage] = useState("");
+  const chatEndRef = useRef<HTMLDivElement>(null);
+
+  // Room peers
+  const [peers, setPeers] = useState<StudyRoomMember[]>([]);
+
+  // Subscription unsubscribe function holders
+  const unsubMsgRef = useRef<(() => void) | null>(null);
+  const unsubMembersRef = useRef<(() => void) | null>(null);
+  const unsubTimerRef = useRef<(() => void) | null>(null);
+
+  // Load User Plan and Rooms
+  useEffect(() => {
+    if (userId) {
+      planService.getUserPlan(userId).then(setActivePlan);
+    }
+    loadRooms();
+
+    // Subscribe to all study rooms updates in real-time (Appwrite & Local fallback)
+    const unsubscribe = coStudyService.subscribeToRooms(() => {
+      loadRooms();
+    });
+
+    return () => {
+      unsubscribe();
+    };
+  }, [userId]);
+
+  // Check for deep-linked pending join room
+  useEffect(() => {
+    if (joinedRoom) return;
+    const pendingRoomId = window.localStorage.getItem("study_planner_pending_join_room");
+    if (pendingRoomId) {
+      window.localStorage.removeItem("study_planner_pending_join_room");
+      toast.info("Connecting to invited study space...");
+      coStudyService.getRoomById(pendingRoomId).then((room) => {
+        if (room) {
+          handleJoinRoom(room);
+        } else {
+          toast.error("Study room not found or has been closed.");
+        }
+      }).catch((err) => {
+        console.error(err);
+        toast.error("Failed to load study room.");
+      });
+    }
+  }, [joinedRoom, rooms]);
+
+  // Scroll to bottom of chat
+  useEffect(() => {
+    chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [chatLogs]);
+
+  // Load Rooms list from database
+  const loadRooms = async () => {
+    setLoadingRooms(true);
+    try {
+      const list = await coStudyService.getRooms(userId);
+      setRooms(list);
+    } catch (err) {
+      console.error("Failed to load rooms:", err);
+    } finally {
+      setLoadingRooms(false);
+    }
+  };
+
+  // Load Members list inside room
+  const loadMembers = async (roomId: string) => {
+    try {
+      const list = await coStudyService.getRoomMembers(roomId);
+      // Filter out self if desired or keep it, since it's cleaner to show all
+      setPeers(list.filter(m => m.userId !== userId));
+    } catch (err) {
+      console.error("Failed to load members:", err);
+    }
+  };
+
+  // Load Chat messages
+  const loadChat = async (roomId: string) => {
+    try {
+      const list = await coStudyService.getMessages(roomId);
+      setChatLogs(list);
+    } catch (err) {
+      console.error("Failed to load chat:", err);
+    }
+  };
+
+  // Pomodoro Timer Engine
+  useEffect(() => {
+    let interval: any = null;
+    
+    // Only the host (creator) runs the active timer interval changes to database
+    const isHost = joinedRoom && joinedRoom.creatorId === userId;
+
+    if (timerActive) {
+      interval = setInterval(() => {
+        if (seconds === 0) {
+          if (minutes === 0) {
+            triggerTimerCompletion(isHost);
+          } else {
+            setMinutes(minutes - 1);
+            setSeconds(59);
+          }
+        } else {
+          setSeconds(seconds - 1);
+        }
+      }, 1000);
+    } else {
+      clearInterval(interval);
+    }
+    return () => clearInterval(interval);
+  }, [timerActive, minutes, seconds, joinedRoom]);
+
+  // Real-time Presence heartbeat pulses (every 15s) and idle pruner
+  useEffect(() => {
+    if (!joinedRoom) return;
+
+    // Send initial pulse
+    coStudyService.pulsePresence(joinedRoom.$id!, userId);
+
+    const pulseInterval = setInterval(() => {
+      // Pulse presence
+      coStudyService.pulsePresence(joinedRoom.$id!, userId);
+      // Prune inactive ghosts
+      coStudyService.pruneInactiveMembers(joinedRoom.$id!);
+    }, 15000);
+
+    return () => clearInterval(pulseInterval);
+  }, [joinedRoom]);
+
+  // Trigger sound alert and timer mode changes when timer ends
+  const triggerTimerCompletion = async (isHost: boolean | null) => {
+    setTimerActive(false);
+    
+    // Play alert sound (HTML5 Audio API)
+    try {
+      const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      osc.type = "sine";
+      osc.frequency.setValueAtTime(587.33, audioCtx.currentTime); // D5
+      osc.frequency.setValueAtTime(659.25, audioCtx.currentTime + 0.15); // E5
+      osc.frequency.setValueAtTime(880.00, audioCtx.currentTime + 0.30); // A5
+      gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.5);
+      osc.connect(gain);
+      gain.connect(audioCtx.destination);
+      osc.start();
+      osc.stop(audioCtx.currentTime + 0.55);
+    } catch (soundErr) {
+      console.warn("Sound alert blocked by browser media policies", soundErr);
+    }
+
+    const nextMode = timerMode === "work" ? "break" : "work";
+    setTimerMode(nextMode);
+    setMinutes(nextMode === "work" ? 25 : 5);
+    setSeconds(0);
+
+    if (nextMode === "break") {
+      toast.success("Focus Session Complete! Take a break.");
+      if (isHost && joinedRoom) {
+        await coStudyService.updateRoomTimer(joinedRoom.$id!, { timerMode: "break" });
+        await coStudyService.sendMessage({
+          roomId: joinedRoom.$id!,
+          senderId: "system",
+          senderName: "Focus Bot",
+          message: "🚨 Focus block finished. Commencing 5-minute recovery break!",
+          timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          isSystem: true
+        });
+      }
+    } else {
+      toast.info("Break finished! Time to study.");
+      if (isHost && joinedRoom) {
+        await coStudyService.updateRoomTimer(joinedRoom.$id!, { timerMode: "work" });
+        await coStudyService.sendMessage({
+          roomId: joinedRoom.$id!,
+          senderId: "system",
+          senderName: "Focus Bot",
+          message: "⚡ Break finished. Commencing 25-minute study block. Focus up!",
+          timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          isSystem: true
+        });
+      }
+    }
+  };
+
+  // Join Room Action (Real-time subscriptions registration)
+  const handleJoinRoom = async (room: StudyRoom) => {
+    if (!room) {
+      toast.error("Unable to join: room details are invalid or missing.");
+      return;
+    }
+
+    // 1. Leave any active room cleanups
+    if (joinedRoom) {
+      await handleLeaveRoom();
+    }
+
+    setJoinedRoom(room);
+    setTimerActive(false);
+    setTimerMode(room.timerMode);
+    setMinutes(room.timerMode === "work" ? 25 : 5);
+    setSeconds(0);
+    setIsMusicPlaying(false);
+
+    try {
+      // 2. Write presence to DB
+      await coStudyService.joinRoom(room.$id!, userId, userName);
+
+      // 3. Load initial logs and participants
+      await Promise.all([
+        loadMembers(room.$id!),
+        loadChat(room.$id!)
+      ]);
+
+      // Send join announcement in chat
+      await coStudyService.sendMessage({
+        roomId: room.$id!,
+        senderId: "system",
+        senderName: "Focus Bot",
+        message: `👋 ${userName} has joined the study room.`,
+        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        isSystem: true
+      });
+
+      // 4. Register WebSocket/Event listeners for active updates
+      unsubMsgRef.current = coStudyService.subscribeToMessages(room.$id!, (newMsg) => {
+        setChatLogs(prev => {
+          // Avoid duplicate appends
+          if (prev.some(m => m.$id === newMsg.$id)) return prev;
+          return [...prev, newMsg];
+        });
+      });
+
+      unsubMembersRef.current = coStudyService.subscribeToMembers(room.$id!, () => {
+        loadMembers(room.$id!);
+      });
+
+      unsubTimerRef.current = coStudyService.subscribeToRoomTimer(room.$id!, (newTimerMode) => {
+        // Master timer sync updates
+        setTimerMode(newTimerMode);
+        setMinutes(newTimerMode === "work" ? 25 : 5);
+        setSeconds(0);
+        setTimerActive(false); // reset trigger on remote changes
+        toast.info(`Timer mode synced to: ${newTimerMode === "work" ? "Focus Block" : "Break Block"}`);
+      });
+
+      toast.success(`Joined study space: ${room.name}`);
+    } catch (err) {
+      console.error(err);
+      toast.error("Failed to connect to study room session.");
+    }
+  };
+
+  // Leave Room Action (Unsubscribe cleaners)
+  const handleLeaveRoom = async () => {
+    if (!joinedRoom) return;
+    const roomRef = joinedRoom;
+    setJoinedRoom(null);
+    setTimerActive(false);
+    setIsMusicPlaying(false);
+    setChatLogs([]);
+    setPeers([]);
+
+    // Clear event triggers
+    if (unsubMsgRef.current) unsubMsgRef.current();
+    if (unsubMembersRef.current) unsubMembersRef.current();
+    if (unsubTimerRef.current) unsubTimerRef.current();
+
+    try {
+      // Send leave announcement
+      await coStudyService.sendMessage({
+        roomId: roomRef.$id!,
+        senderId: "system",
+        senderName: "Focus Bot",
+        message: `🚪 ${userName} has left the study room.`,
+        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        isSystem: true
+      });
+
+      // Remove presence registration
+      await coStudyService.leaveRoom(roomRef.$id!, userId);
+      loadRooms();
+    } catch (err) {
+      console.error("Error leaving study room:", err);
+    }
+  };
+
+  // Clean up subscriptions on component unmount
+  useEffect(() => {
+    return () => {
+      if (unsubMsgRef.current) unsubMsgRef.current();
+      if (unsubMembersRef.current) unsubMembersRef.current();
+      if (unsubTimerRef.current) unsubTimerRef.current();
+    };
+  }, []);
+
+  // Handle Create Room Click (Subscription gating checks)
+  const handleCreateRoomClick = () => {
+    const isFree = !activePlan || activePlan.plan === "free";
+    if (isFree) {
+      setIsGatingDialogOpen(true);
+    } else {
+      setIsCreateDialogOpen(true);
+    }
+  };
+
+  // Process Creating Room
+  const handleCreateRoomConfirm = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newRoomName.trim()) {
+      toast.error("Please enter a room name.");
+      return;
+    }
+
+    try {
+      const room = await coStudyService.createRoom({
+        name: newRoomName.trim(),
+        description: newRoomDesc.trim() || "Virtual room for collaborative study focus.",
+        maxMembers: activePlan?.plan === "pro" ? 5 : 25,
+        isPrivate: newRoomPrivate,
+        creatorId: userId,
+        createdAt: new Date().toISOString()
+      });
+
+      setIsCreateDialogOpen(false);
+      setNewRoomName("");
+      setNewRoomDesc("");
+      setNewRoomPrivate(false);
+      
+      // Load and join room
+      await loadRooms();
+      await handleJoinRoom(room);
+    } catch (err: any) {
+      console.error(err);
+      toast.error(`Failed to create study room: ${err.message || err}`);
+    }
+  };
+
+  // Post chat message
+  const handleSendMessage = async () => {
+    if (!typedMessage.trim() || !joinedRoom) return;
+
+    try {
+      await coStudyService.sendMessage({
+        roomId: joinedRoom.$id!,
+        senderId: userId,
+        senderName: userName,
+        message: typedMessage.trim(),
+        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+      });
+      setTypedMessage("");
+    } catch (err) {
+      console.error("Message send failed:", err);
+      toast.error("Message failed to send.");
+    }
+  };
+
+  // User posts study status tag update
+  const handlePostStatusTag = async (statusTag: string) => {
+    if (!joinedRoom) return;
+
+    try {
+      // Update presence status
+      await coStudyService.updateMemberStatus(joinedRoom.$id!, userId, `Focusing: ${statusTag}`, true);
+
+      // Post status text in chat logs
+      await coStudyService.sendMessage({
+        roomId: joinedRoom.$id!,
+        senderId: "system",
+        senderName: "Focus Bot",
+        message: `📝 ${userName} is now focusing on: ${statusTag}`,
+        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        isSystem: true
+      });
+      toast.success(`Study status updated: ${statusTag}`);
+    } catch (err) {
+      console.error("Status update failed:", err);
+    }
+  };
+
+  return (
+    <div className="space-y-6">
+      {/* ─── PAGE HEADER ─── */}
+      {!joinedRoom && (
+        <Card className="relative overflow-hidden border border-border/80 shadow-md">
+          <div className="absolute inset-0 bg-gradient-to-r from-violet-500/10 via-indigo-500/5 to-purple-500/5 dark:from-violet-950/20" />
+          <CardHeader className="relative p-6">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div className="space-y-1">
+                <Badge variant="secondary" className="bg-violet-500/10 text-violet-600 dark:text-violet-400 font-semibold px-2 py-0.5 text-xs">
+                  Active Accountability Focus
+                </Badge>
+                <CardTitle className="text-2xl sm:text-3xl font-black">Co-Study Focus Rooms</CardTitle>
+                <CardDescription className="text-muted-foreground text-sm max-w-xl">
+                  Study side-by-side with online classmates, synchronize study cycles, chat, and stream focus tunes together.
+                </CardDescription>
+              </div>
+              <Button
+                onClick={handleCreateRoomClick}
+                className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl gap-2 cursor-pointer shadow-md shadow-indigo-500/10"
+              >
+                <PlusCircle className="w-4.5 h-4.5" />
+                Create Private Room
+              </Button>
+            </div>
+          </CardHeader>
+        </Card>
+      )}
+
+      {/* ─── ROOM LOBBY VIEW ─── */}
+      {!joinedRoom ? (
+        <>
+          {loadingRooms ? (
+            <div className="flex flex-col items-center justify-center py-20 space-y-4">
+              <div className="w-10 h-10 border-4 border-indigo-600/30 border-t-indigo-600 rounded-full animate-spin" />
+              <p className="text-xs text-muted-foreground font-semibold">Loading focus lobbies...</p>
+            </div>
+          ) : rooms.length === 0 ? (
+            <div className="text-center py-20 bg-card/35 backdrop-blur-md rounded-3xl border border-border/60 shadow-sm space-y-4 max-w-md mx-auto">
+              <div className="w-16 h-16 bg-indigo-500/10 text-indigo-500 rounded-full flex items-center justify-center mx-auto border border-indigo-500/20">
+                <Users className="w-7 h-7" />
+              </div>
+              <div className="space-y-1 px-6">
+                <h3 className="text-sm font-black text-foreground">No active focus rooms</h3>
+                <p className="text-xs text-muted-foreground leading-normal">Be the first to create a custom study room and invite your study peers!</p>
+              </div>
+              <Button
+                onClick={handleCreateRoomClick}
+                className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs px-5 py-2.5 rounded-xl cursor-pointer shadow-md"
+              >
+                Create Room
+              </Button>
+            </div>
+          ) : (
+            <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+              {rooms.map((room) => (
+                <Card
+                  key={room.$id}
+                  className="bg-card/45 backdrop-blur-sm border border-border/60 hover:border-indigo-500/50 hover:shadow-[0_12px_30px_-10px_rgba(99,102,241,0.15)] transition-all duration-300 transform hover:-translate-y-1.5 flex flex-col justify-between overflow-hidden relative"
+                >
+                  <div className="absolute top-0 inset-x-0 h-[3px] bg-gradient-to-r from-indigo-500 to-purple-600 opacity-60" />
+                  <CardHeader className="pb-3 pt-5">
+                    <div className="flex items-center justify-between gap-2">
+                      <Badge variant="outline" className="text-[9px] font-black uppercase px-2 py-0.5 tracking-wider border-emerald-500/20 bg-emerald-500/5 text-emerald-600 dark:text-emerald-400">
+                        🟢 Active Focus
+                      </Badge>
+                      {room.isPrivate && (
+                        <Badge variant="outline" className="text-[9px] font-black uppercase px-2 py-0.5 border-purple-500/20 bg-purple-500/5 text-purple-600 dark:text-purple-400 gap-1">
+                          <Lock className="w-2.5 h-2.5" /> Private
+                        </Badge>
+                      )}
+                    </div>
+                    <CardTitle className="text-base font-extrabold mt-3.5 text-foreground leading-snug">{room.name}</CardTitle>
+                    <CardDescription className="text-xs leading-normal mt-1.5 min-h-[36px] text-muted-foreground/90">
+                      {room.description}
+                    </CardDescription>
+                  </CardHeader>
+
+                  <CardContent className="pt-0 space-y-4">
+                    <div className="flex items-center justify-between border-t border-border/40 pt-3 text-xs text-muted-foreground font-semibold">
+                      <div className="flex items-center gap-1.5">
+                        <Users className="w-4 h-4 text-indigo-500" />
+                        <span>{room.membersCount} online</span>
+                      </div>
+                      <div className="flex items-center gap-1.5">
+                        <Timer className="w-4 h-4 text-violet-500" />
+                        <span>25m Pomodoro</span>
+                      </div>
+                    </div>
+
+                    <Button
+                      onClick={() => handleJoinRoom(room)}
+                      className="w-full bg-gradient-to-r from-indigo-500/10 to-purple-500/10 hover:from-indigo-600 hover:to-purple-600 text-indigo-600 dark:text-indigo-400 hover:text-white border border-indigo-500/20 hover:border-transparent font-black text-xs py-5 rounded-xl cursor-pointer transition-all duration-300"
+                    >
+                      Join Study Room
+                    </Button>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
+        </>
+      ) : (
+        // ─── ACTIVE STUDY ROOM VIEW ───
+        <div className="space-y-6">
+          {/* Room Header Controls */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-gradient-to-r from-card/80 to-indigo-500/5 p-5 rounded-2xl border border-border/80 shadow-md relative overflow-hidden backdrop-blur-md">
+            <div className="absolute top-0 right-0 w-36 h-36 bg-indigo-500/5 rounded-full filter blur-2xl pointer-events-none" />
+            <div className="flex items-center gap-3">
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={handleLeaveRoom}
+                className="rounded-xl border-border/80 h-10 w-10 cursor-pointer hover:bg-accent hover:text-foreground transition-all duration-200"
+              >
+                <ArrowLeft className="w-5 h-5" />
+              </Button>
+              <div>
+                <h2 className="text-xl font-black text-foreground flex items-center gap-2 flex-wrap">
+                  {joinedRoom.name}
+                  {joinedRoom.creatorId === userId && (
+                    <Badge className="bg-amber-500/10 text-amber-600 dark:text-amber-400 font-extrabold px-2 py-0.5 text-[9px] gap-1 border-amber-500/20">
+                      <Crown className="w-3 h-3" /> Host
+                    </Badge>
+                  )}
+                  {joinedRoom.isPrivate && (
+                    <Badge className="bg-purple-500/10 text-purple-600 dark:text-purple-400 font-extrabold px-2 py-0.5 text-[9px] gap-1 border-purple-500/20">
+                      <Lock className="w-3 h-3" /> Private
+                    </Badge>
+                  )}
+                </h2>
+                <p className="text-xs text-muted-foreground mt-0.5">{joinedRoom.description}</p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2.5 shrink-0 self-start sm:self-center">
+              <Button
+                onClick={() => {
+                  const inviteLink = `${window.location.origin}?join=${joinedRoom.$id || (joinedRoom as any).id}`;
+                  navigator.clipboard.writeText(inviteLink);
+                  toast.success("Study room invite link copied to clipboard!");
+                }}
+                className="bg-indigo-600/10 hover:bg-indigo-600/20 text-indigo-600 dark:text-indigo-400 font-extrabold text-xs h-9 rounded-xl gap-1.5 cursor-pointer border border-indigo-500/20 transition-all flex items-center px-4.5"
+              >
+                <PlusCircle className="w-4 h-4 animate-bounce" />
+                Invite Friends
+              </Button>
+              <Badge variant="outline" className="h-9 px-3.5 text-xs font-black bg-indigo-500/5 text-indigo-600 dark:text-indigo-400 border-indigo-500/30 select-none animate-pulse">
+                👥 {peers.length + 1} studying
+              </Badge>
+            </div>
+          </div>
+
+          <div className="grid gap-6 lg:grid-cols-3">
+            {/* LEFT 2 COLUMNS: Timer & Lofi tuners */}
+            <div className="lg:col-span-2 space-y-6">
+              {/* Pomodoro Timer widget */}
+              <Card className="border border-border/60 overflow-hidden relative shadow-lg bg-card/65 backdrop-blur-md transition-all duration-300 hover:shadow-xl">
+                <div className={`absolute top-0 inset-x-0 h-1.5 transition-all duration-500 ${timerMode === "work" ? "bg-indigo-600 animate-pulse" : "bg-emerald-500"}`} />
+                <CardHeader className="text-center pb-2">
+                  <span className="text-[11px] font-black text-muted-foreground uppercase tracking-widest block">
+                    {timerMode === "work" ? "💻 Focus Study Session" : "☕ Recovery Break"}
+                  </span>
+                </CardHeader>
+                <CardContent className="flex flex-col items-center justify-center py-8 space-y-6">
+                  {/* Timer display with custom glowing dropshadow based on mode */}
+                  <div className={`text-6xl sm:text-7xl font-black font-mono tracking-tighter text-foreground tabular-nums select-none transition-all duration-500 filter ${
+                    timerMode === "work" 
+                      ? "drop-shadow-[0_0_20px_rgba(99,102,241,0.25)]" 
+                      : "drop-shadow-[0_0_20px_rgba(16,185,129,0.25)]"
+                  }`}>
+                    {String(minutes).padStart(2, "0")}:{String(seconds).padStart(2, "0")}
+                  </div>
+
+                  {/* Playback Controls (Host-only or synced) */}
+                  <div className="flex items-center gap-3">
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      onClick={() => {
+                        if (joinedRoom.creatorId !== userId) {
+                          toast.error("Only the Host can play/pause the synchronized clock.");
+                          return;
+                        }
+                        setTimerActive(!timerActive);
+                      }}
+                      className={`h-12 w-12 rounded-full cursor-pointer transition-all duration-300 transform active:scale-95 shadow-md ${
+                        timerActive
+                          ? "border-red-500/40 text-red-500 bg-red-500/10 hover:bg-red-500/20"
+                          : "border-indigo-500/40 text-indigo-500 bg-indigo-500/10 hover:bg-indigo-500/20"
+                      }`}
+                    >
+                      {timerActive ? <Pause className="w-5.5 h-5.5" /> : <Play className="w-5.5 h-5.5 ml-0.5" />}
+                    </Button>
+                    
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      onClick={() => {
+                        if (joinedRoom.creatorId !== userId) {
+                          toast.error("Only the Host can reset the synchronized clock.");
+                          return;
+                        }
+                        setTimerActive(false);
+                        setTimerMode("work");
+                        setMinutes(25);
+                        setSeconds(0);
+                        coStudyService.updateRoomTimer(joinedRoom.$id!, { timerMode: "work" });
+                        toast.info("Timer reset to 25m focus block.");
+                      }}
+                      className="h-10 w-10 rounded-full border-border/80 text-muted-foreground hover:text-foreground cursor-pointer transition-transform duration-200 active:scale-90 hover:rotate-180"
+                    >
+                      <RotateCcw className="w-5 h-5" />
+                    </Button>
+
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        if (joinedRoom.creatorId !== userId) {
+                          toast.error("Only the Host can toggle/skip session modes.");
+                          return;
+                        }
+                        setTimerActive(false);
+                        const next = timerMode === "work" ? "break" : "work";
+                        setTimerMode(next);
+                        setMinutes(next === "work" ? 25 : 5);
+                        setSeconds(0);
+                        coStudyService.updateRoomTimer(joinedRoom.$id!, { timerMode: next });
+                        toast.info(`Switched to: ${next}`);
+                      }}
+                      className="text-xs h-10 rounded-xl border-border/80 gap-1.5 cursor-pointer hover:bg-accent transition-colors px-3.5 font-bold"
+                    >
+                      <Coffee className="w-4 h-4 text-amber-500" />
+                      Skip Session
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Lofi Tunes embedding player */}
+              <Card className="border border-border/60 shadow-sm overflow-hidden">
+                <CardHeader className="pb-3 border-b border-border/60">
+                  <div className="flex items-center justify-between flex-wrap gap-2">
+                    <CardTitle className="text-sm font-bold flex items-center gap-1.5">
+                      <Tv className="w-4.5 h-4.5 text-indigo-500" />
+                      Background Lo-fi Deck
+                    </CardTitle>
+                    <div className="flex items-center gap-1.5 bg-accent/40 px-2 py-1 rounded-lg border border-border/40 text-[10px] text-muted-foreground font-semibold">
+                      <span>YouTube Embed Player</span>
+                    </div>
+                  </div>
+                </CardHeader>
+                <CardContent className="p-0">
+                  {/* Selector tab list */}
+                  <div className="flex gap-1.5 p-3 overflow-x-auto border-b border-border/50 bg-background/55 items-center">
+                    {LOFI_PRESETS.map((preset) => (
+                      <button
+                        key={preset.id}
+                        onClick={() => {
+                          setMusicPreset(preset);
+                          setIsCustomMode(false);
+                          setIsMusicPlaying(true);
+                          toast.success(`Playing ${preset.name}!`);
+                        }}
+                        className={`px-3 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap transition-colors cursor-pointer ${
+                          !isCustomMode && musicPreset.id === preset.id
+                            ? "bg-indigo-600 text-white shadow-sm font-extrabold"
+                            : "bg-accent/40 text-muted-foreground hover:bg-accent/70 hover:text-foreground"
+                        }`}
+                      >
+                        {preset.name}
+                      </button>
+                    ))}
+                    <button
+                      onClick={() => {
+                        setIsCustomMode(true);
+                      }}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap transition-colors cursor-pointer ${
+                        isCustomMode
+                          ? "bg-indigo-600 text-white shadow-sm font-extrabold"
+                          : "bg-accent/40 text-muted-foreground hover:bg-accent/70 hover:text-foreground"
+                      }`}
+                    >
+                      🎵 Custom Stream
+                    </button>
+                  </div>
+
+                  {/* Custom URL Input Field */}
+                  {isCustomMode && (
+                    <div className="px-4 pt-3 pb-0">
+                      <div className="flex gap-2">
+                        <input
+                          type="text"
+                          placeholder="Paste YouTube Video URL or ID..."
+                          value={customUrl}
+                          onChange={(e) => setCustomUrl(e.target.value)}
+                          className="flex-1 px-3 py-1.5 rounded-xl border border-border bg-background/70 text-xs font-medium focus:outline-none focus:ring-1 focus:ring-indigo-500 placeholder:text-muted-foreground/60 text-foreground"
+                        />
+                        <Button
+                          onClick={() => {
+                            const videoId = getYoutubeVideoId(customUrl);
+                            if (videoId) {
+                              setMusicPreset({
+                                id: "custom",
+                                name: "Custom Stream",
+                                url: `https://www.youtube.com/embed/${videoId}?autoplay=1`
+                              });
+                              setIsMusicPlaying(true);
+                              toast.success("Playing custom YouTube stream!");
+                            } else {
+                              toast.error("Invalid YouTube URL or Video ID.");
+                            }
+                          }}
+                          className="bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold px-3 py-1.5 rounded-xl shrink-0"
+                        >
+                          Play
+                        </Button>
+                      </div>
+                      <p className="text-[10px] text-muted-foreground/80 mt-1">
+                        Supports standard watch links, youtu.be, embed, or 11-char IDs.
+                      </p>
+                    </div>
+                  )}
+
+                  <div className="p-4 space-y-4">
+                    {isMusicPlaying ? (
+                      <div className="aspect-video w-full rounded-2xl overflow-hidden border border-border bg-black shadow-inner relative">
+                        <iframe
+                          width="100%"
+                          height="100%"
+                          src={musicPreset.url}
+                          title="Lofi player"
+                          frameBorder="0"
+                          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                          allowFullScreen
+                        />
+                      </div>
+                    ) : (
+                      <div className="text-center py-10 bg-accent/30 rounded-2xl border border-dashed border-border/70 space-y-3 flex flex-col items-center">
+                        <Volume2 className="h-8 w-8 text-indigo-500 animate-bounce" />
+                        <div>
+                          <p className="text-xs font-bold text-foreground">Need background lofi focus tunes?</p>
+                          <p className="text-[10px] text-muted-foreground mt-0.5">Click to play high-quality embedded YouTube streams.</p>
+                        </div>
+                        <Button
+                          onClick={() => {
+                            if (isCustomMode) {
+                              const videoId = getYoutubeVideoId(customUrl);
+                              if (videoId) {
+                                setMusicPreset({
+                                  id: "custom",
+                                  name: "Custom Stream",
+                                  url: `https://www.youtube.com/embed/${videoId}?autoplay=1`
+                                });
+                                setIsMusicPlaying(true);
+                                toast.success("Playing custom YouTube stream!");
+                              } else {
+                                toast.error("Please enter a valid YouTube URL or ID first.");
+                              }
+                            } else {
+                              setIsMusicPlaying(true);
+                              toast.success(`Playing ${musicPreset.name}!`);
+                            }
+                          }}
+                          className="bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold px-4 py-2 rounded-xl"
+                        >
+                          Enable Focus Player
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Classmates presence listings */}
+              <Card className="border border-border/60 shadow-sm">
+                <CardHeader>
+                  <CardTitle className="text-sm font-bold flex items-center gap-1.5">
+                    <Users className="w-4.5 h-4.5 text-indigo-500" />
+                    Online Peers
+                  </CardTitle>
+                  <CardDescription className="text-xs">Active members in this classroom</CardDescription>
+                </CardHeader>
+                <CardContent className="pt-0">
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    {/* User Self */}
+                    <div className="flex items-center gap-3 p-3 rounded-xl border border-indigo-600/30 bg-indigo-500/5">
+                      <div className="w-9 h-9 rounded-xl bg-indigo-600 text-white flex items-center justify-center font-bold text-xs shrink-0 select-none">
+                        YOU
+                      </div>
+                      <div className="overflow-hidden">
+                        <p className="text-xs font-black text-foreground truncate">{userName}</p>
+                        <p className="text-[10px] text-indigo-600 dark:text-indigo-400 font-bold mt-0.5">
+                          {timerMode === "work" ? (timerActive ? "🟢 Focusing" : "🟡 Idle") : "☕ Resting"}
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Room Peers */}
+                    {peers.map((peer) => (
+                      <div key={peer.$id || peer.userId} className="flex items-center gap-3 p-3 rounded-xl border border-border/50 bg-background/55">
+                        <div className="w-9 h-9 rounded-xl bg-purple-500 text-white flex items-center justify-center font-bold text-xs shrink-0 select-none">
+                          {peer.userName[0].toUpperCase()}
+                        </div>
+                        <div className="overflow-hidden">
+                          <p className="text-xs font-bold text-foreground truncate">{peer.userName}</p>
+                          <p className="text-[9px] text-muted-foreground truncate mt-0.5 leading-snug">
+                            {peer.status}
+                          </p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* RIGHT COLUMN: Live Group Chat & Status Updates */}
+            <div className="lg:col-span-1 space-y-6 flex flex-col">
+              {/* Group chat window */}
+              <Card className="border border-border/60 shadow-sm flex flex-col h-[550px]">
+                <CardHeader className="border-b border-border/60 py-4">
+                  <CardTitle className="text-sm font-bold flex items-center gap-1.5">
+                    <MessageSquare className="w-4.5 h-4.5 text-indigo-500" />
+                    Live Room Chat
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="flex-1 flex flex-col justify-between p-4 overflow-hidden">
+                  
+                  {/* Chat messages listing container */}
+                  <div className="flex-1 overflow-y-auto space-y-3 pr-1 pb-3 scroll-smooth">
+                    {chatLogs.map((log) => {
+                      if (log.isSystem) {
+                        return (
+                          <div key={log.$id} className="text-center bg-accent/40 rounded-xl p-2 border border-border/30">
+                            <p className="text-[9px] font-bold text-muted-foreground leading-normal">{log.message}</p>
+                          </div>
+                        );
+                      }
+                      
+                      const isSelf = log.senderId === userId;
+                      return (
+                        <div key={log.$id} className={`flex items-start gap-2 max-w-[85%] ${isSelf ? "ml-auto flex-row-reverse" : ""}`}>
+                          <div className={`w-6.5 h-6.5 rounded-lg shrink-0 flex items-center justify-center font-black text-[9px] select-none text-white ${isSelf ? "bg-indigo-600" : "bg-purple-600"}`}>
+                            {log.senderName[0].toUpperCase()}
+                          </div>
+                          <div className={`rounded-2xl p-2.5 text-xs ${
+                            isSelf 
+                              ? "bg-indigo-600 text-white rounded-tr-none" 
+                              : "bg-accent/60 text-foreground rounded-tl-none border border-border/30"
+                          }`}>
+                            {!isSelf && <span className="font-black block text-[8px] text-indigo-500 dark:text-indigo-400 mb-0.5">{log.senderName}</span>}
+                            <p className="leading-relaxed break-words">{log.message}</p>
+                            <span className={`text-[7px] text-right block mt-1.5 ${isSelf ? "text-indigo-200" : "text-muted-foreground"}`}>{log.timestamp}</span>
+                          </div>
+                        </div>
+                      );
+                    })}
+                    <div ref={chatEndRef} />
+                  </div>
+
+                  {/* Send chat input */}
+                  <div className="flex items-center gap-1.5 border-t border-border/50 pt-3.5">
+                    <input
+                      type="text"
+                      placeholder="Send message..."
+                      value={typedMessage}
+                      onChange={(e) => setTypedMessage(e.target.value)}
+                      onKeyDown={(e) => e.key === 'Enter' && handleSendMessage()}
+                      className="flex-1 text-xs px-3.5 py-3 rounded-2xl border border-border bg-background focus:outline-none focus:ring-1 focus:ring-indigo-500 font-medium"
+                    />
+                    <Button
+                      size="icon"
+                      onClick={handleSendMessage}
+                      className="bg-indigo-600 hover:bg-indigo-700 text-white h-10 w-10 rounded-2xl shrink-0 cursor-pointer"
+                    >
+                      <Send className="w-4 h-4" />
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Status Update Card */}
+              <Card className="border border-border/60 shadow-sm">
+                <CardHeader className="pb-3 border-b border-border/60">
+                  <CardTitle className="text-xs font-extrabold uppercase tracking-widest text-muted-foreground">Post Study Status Update</CardTitle>
+                </CardHeader>
+                <CardContent className="p-3">
+                  <div className="grid grid-cols-2 gap-2">
+                    {[
+                      { label: "📝 Essay Drafting", tag: "Essay Drafting" },
+                      { label: "💻 Coding CS Lab", tag: "Coding CS Lab" },
+                      { label: "📚 Reading Material", tag: "Reading Textbook" },
+                      { label: "🧮 Math Formulas", tag: "Solving Math Tasks" },
+                      { label: "🧪 Physics Quiz", tag: "Solving Physics Quiz" },
+                      { label: "☕ Tea break", tag: "Taking Tea Break" }
+                    ].map((status) => (
+                      <button
+                        key={status.tag}
+                        onClick={() => handlePostStatusTag(status.tag)}
+                        className="p-2 bg-accent/40 hover:bg-indigo-500/10 hover:text-indigo-600 dark:hover:text-indigo-400 border border-border/30 rounded-xl text-[10px] font-bold text-muted-foreground transition-colors cursor-pointer text-center"
+                      >
+                        {status.label}
+                      </button>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ─── DIALOG: SUBSCRIPTION GATING (FREE USER LOCK) ─── */}
+      <Dialog open={isGatingDialogOpen} onOpenChange={setIsGatingDialogOpen}>
+        <DialogContent className="max-w-md rounded-3xl p-6 sm:p-8">
+          <DialogHeader className="items-center text-center space-y-4">
+            <div className="w-14 h-14 rounded-2xl bg-amber-500/10 text-amber-500 flex items-center justify-center border border-amber-500/20 shadow-md">
+              <Crown className="w-7 h-7 animate-pulse" />
+            </div>
+            <div>
+              <DialogTitle className="text-xl font-black text-foreground">Scholar Pro Subscription Required</DialogTitle>
+              <DialogDescription className="text-xs text-muted-foreground mt-2 leading-relaxed max-w-[320px] mx-auto">
+                Creating custom private Focus Rooms is a premium feature. Free tier members can join any public room, but require Scholar Pro or Premium to host their own.
+              </DialogDescription>
+            </div>
+          </DialogHeader>
+          
+          <div className="p-4 rounded-2xl bg-zinc-950/20 border border-border/65 text-xs text-muted-foreground space-y-2 mt-2 leading-normal">
+            <span className="font-bold text-foreground block">🔓 Pro Membership features:</span>
+            <span>• Create private rooms for up to 5 study buddies.</span><br/>
+            <span>• Fully unlock 500 AI study credits per month.</span><br/>
+            <span>• Custom room themes & playlist streaming.</span>
+          </div>
+
+          <DialogFooter className="flex flex-row gap-3 pt-3.5">
+            <Button
+              variant="ghost"
+              onClick={() => setIsGatingDialogOpen(false)}
+              className="flex-1 text-xs rounded-2xl py-5"
+            >
+              Close
+            </Button>
+            <Button
+              onClick={() => {
+                setIsGatingDialogOpen(false);
+                if (onNavigateToBilling) {
+                  onNavigateToBilling();
+                } else {
+                  window.dispatchEvent(new CustomEvent("navigateToStudyPage", { detail: "billing" }));
+                }
+              }}
+              className="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs rounded-2xl py-5 shadow-lg shadow-indigo-500/10"
+            >
+              View Pricing Plans
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ─── DIALOG: CREATE ROOM (PRO / PREMIUM ONLY) ─── */}
+      <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
+        <DialogContent className="max-w-md rounded-3xl p-6 sm:p-8">
+          <form onSubmit={handleCreateRoomConfirm} className="space-y-5">
+            <DialogHeader>
+              <DialogTitle className="text-lg font-black text-foreground flex items-center gap-1.5">
+                <Sparkles className="w-5 h-5 text-indigo-500 animate-pulse" />
+                Create Custom Study Room
+              </DialogTitle>
+              <DialogDescription className="text-xs">Set up a synchronized workspace for your group study sessions.</DialogDescription>
+            </DialogHeader>
+
+            <div className="space-y-4">
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider block">Room Name</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. Bio 101 Midterm Group, Coding & Chill"
+                  value={newRoomName}
+                  onChange={(e) => setNewRoomName(e.target.value)}
+                  className="w-full text-xs px-4 py-3 rounded-2xl border border-border bg-background focus:outline-none focus:ring-1 focus:ring-indigo-500 font-medium"
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider block">Short Description</label>
+                <textarea
+                  placeholder="e.g. Focus sessions with 25m work / 5m breaks. Study music embed."
+                  value={newRoomDesc}
+                  onChange={(e) => setNewRoomDesc(e.target.value)}
+                  rows={2}
+                  className="w-full text-xs px-4 py-3 rounded-2xl border border-border bg-background focus:outline-none focus:ring-1 focus:ring-indigo-500 font-medium resize-none"
+                />
+              </div>
+
+              {/* Private Checkbox */}
+              <div className="flex items-center justify-between p-3 rounded-2xl border border-border/55 bg-background/55">
+                <div>
+                  <span className="text-xs font-bold text-foreground block">Make Room Private</span>
+                  <span className="text-[10px] text-muted-foreground">Only friends with the invite link can view and join.</span>
+                </div>
+                <input
+                  type="checkbox"
+                  checked={newRoomPrivate}
+                  onChange={(e) => setNewRoomPrivate(e.target.checked)}
+                  className="h-4.5 w-4.5 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer"
+                />
+              </div>
+            </div>
+
+            <DialogFooter className="flex flex-row gap-3 pt-2">
+              <Button
+                type="button"
+                variant="ghost"
+                onClick={() => setIsCreateDialogOpen(false)}
+                className="flex-1 text-xs rounded-2xl py-5"
+              >
+                Cancel
+              </Button>
+              <Button
+                type="submit"
+                className="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs rounded-2xl py-5 shadow-lg shadow-indigo-500/10"
+              >
+                Create and Launch Room
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+};

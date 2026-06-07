@@ -14,6 +14,7 @@ import { AiTutorExplain } from "../components/AiTutorExplain";
 import { OnboardingGuide } from "../components/OnboardingGuide";
 import { Billing } from "../components/Billing";
 import { AiDocumentHub } from "../components/AiDocumentHub";
+import { CoStudyRooms } from "../components/CoStudyRooms";
 import { PomodoroProvider } from "../contexts/PomodoroContext";
 import { Button } from "./components/ui/button";
 import { Toaster } from "./components/ui/sonner";
@@ -37,6 +38,7 @@ import {
   Menu,
   X,
   FileUp,
+  Users,
 } from "lucide-react";
 import { useTheme } from "next-themes";
 
@@ -53,7 +55,8 @@ type Page =
   | "ai-roadmap"
   | "ai-tutor"
   | "billing"
-  | "ai-doc-hub";
+  | "ai-doc-hub"
+  | "co-study";
 
 const Sidebar: React.FC<{
   currentPage: Page;
@@ -93,6 +96,7 @@ const Sidebar: React.FC<{
     { id: "tasks" as Page, label: "Tasks", icon: CheckSquare },
     { id: "exams" as Page, label: "Exams", icon: Calendar },
     { id: "pomodoro" as Page, label: "Pomodoro", icon: Timer },
+    { id: "co-study" as Page, label: "Co-Study Rooms", icon: Users },
     { id: "ai-doc-hub" as Page, label: "AI Doc Hub", icon: FileUp },
     { id: "ai-quiz" as Page, label: "AI Quiz", icon: Sparkles },
     { id: "ai-notes" as Page, label: "AI Notes", icon: FileText },
@@ -369,6 +373,37 @@ const AppContent: React.FC = () => {
     }
   }, [user, loadOnboardingStatus]);
 
+  // Invite deep-linking listener
+  React.useEffect(() => {
+    if (user) {
+      const params = new URLSearchParams(window.location.search);
+      const joinRoomId = params.get("join");
+      if (joinRoomId) {
+        window.localStorage.setItem("study_planner_pending_join_room", joinRoomId);
+        setCurrentPage("co-study");
+        // Clear query parameter from the browser URL so it doesn't re-trigger on refresh
+        const cleanUrl = window.location.origin + window.location.pathname;
+        window.history.replaceState({}, document.title, cleanUrl);
+      }
+    }
+  }, [user]);
+
+  // Custom navigation event listener
+  React.useEffect(() => {
+    const handleNavigate = (e: Event) => {
+      const customEvent = e as CustomEvent;
+      if (customEvent.detail) {
+        setCurrentPage(customEvent.detail);
+      }
+    };
+    window.addEventListener("navigateToPage", handleNavigate);
+    window.addEventListener("navigateToStudyPage", handleNavigate);
+    return () => {
+      window.removeEventListener("navigateToPage", handleNavigate);
+      window.removeEventListener("navigateToStudyPage", handleNavigate);
+    };
+  }, []);
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -442,6 +477,9 @@ const AppContent: React.FC = () => {
             <ExamsManager onOnboardingProgress={loadOnboardingStatus} />
           )}
           {currentPage === "pomodoro" && <PomodoroTimer />}
+          {currentPage === "co-study" && (
+            <CoStudyRooms onNavigateToBilling={() => setCurrentPage("billing")} />
+          )}
           {currentPage === "ai-doc-hub" && <AiDocumentHub />}
           {currentPage === "ai-quiz" && <AiQuizGenerator />}
           {currentPage === "ai-notes" && <AiNotesGenerator />}
