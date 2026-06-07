@@ -80,6 +80,7 @@ export const CoStudyRooms: React.FC<{ onNavigateToBilling?: () => void }> = ({ o
 
   // Active room session
   const [joinedRoom, setJoinedRoom] = useState<StudyRoom | null>(null);
+  const [activeMobileTab, setActiveMobileTab] = useState<"focus" | "chat">("focus");
   const [musicPreset, setMusicPreset] = useState(LOFI_PRESETS[0]);
   const [isMusicPlaying, setIsMusicPlaying] = useState(false);
   const [customUrl, setCustomUrl] = useState("");
@@ -175,9 +176,95 @@ export const CoStudyRooms: React.FC<{ onNavigateToBilling?: () => void }> = ({ o
   const loadChat = async (roomId: string) => {
     try {
       const list = await coStudyService.getMessages(roomId);
-      setChatLogs(list);
+      
+      // Filter out TIMER_SYNC signaling messages from general chat display
+      const chatMessages = list.filter(m => !m.message.startsWith("TIMER_SYNC:"));
+      setChatLogs(chatMessages);
+
+      // Extract the last synchronization signal to catch up hot-joining peers
+      const lastSync = [...list].reverse().find(m => m.message.startsWith("TIMER_SYNC:"));
+      if (lastSync && joinedRoom && joinedRoom.creatorId !== userId) {
+        handleTimerSyncMessage(lastSync.message);
+      }
     } catch (err) {
       console.error("Failed to load chat:", err);
+    }
+  };
+
+  const handleTimerSyncMessage = (syncString: string) => {
+    const parts = syncString.split(":");
+    if (parts.length < 5) return;
+
+    const action = parts[1]; // PLAY, PAUSE, RESET, SWITCH
+    
+    if (action === "PLAY") {
+      const mins = parseInt(parts[2], 10);
+      const secs = parseInt(parts[3], 10);
+      const isoTime = parts.slice(4).join(":");
+      
+      try {
+        const timeMs = new Date(isoTime).getTime();
+        if (!isNaN(timeMs)) {
+          const elapsedMs = Date.now() - timeMs;
+          const elapsedSecs = Math.floor(elapsedMs / 1000);
+          const totalRemainingSecs = (mins * 60) + secs - elapsedSecs;
+
+          if (totalRemainingSecs > 0) {
+            setMinutes(Math.floor(totalRemainingSecs / 60));
+            setSeconds(totalRemainingSecs % 60);
+            setTimerActive(true);
+          } else {
+            setMinutes(0);
+            setSeconds(0);
+            setTimerActive(false);
+          }
+        }
+      } catch (err) {
+        console.error("Failed to parse sync time:", err);
+      }
+    } else if (action === "PAUSE") {
+      const mins = parseInt(parts[2], 10);
+      const secs = parseInt(parts[3], 10);
+      setMinutes(mins);
+      setSeconds(secs);
+      setTimerActive(false);
+    } else if (action === "RESET") {
+      const mins = parseInt(parts[2], 10);
+      const secs = parseInt(parts[3], 10);
+      setMinutes(mins);
+      setSeconds(secs);
+      setTimerMode("work");
+      setTimerActive(false);
+    } else if (action === "SWITCH") {
+      const mode = parts[2] as "work" | "break";
+      const mins = parseInt(parts[3], 10);
+      const secs = parseInt(parts[4], 10);
+      setTimerMode(mode);
+      setMinutes(mins);
+      setSeconds(secs);
+      setTimerActive(false);
+    }
+  };
+
+  const sendTimerSyncSignal = async (action: string, mins: number, secs: number, extra?: string) => {
+    if (!joinedRoom) return;
+    const isoTime = new Date().toISOString();
+    let messageContent = `TIMER_SYNC:${action}:${mins}:${secs}:${isoTime}`;
+    if (action === "SWITCH") {
+      messageContent = `TIMER_SYNC:SWITCH:${extra}:${mins}:${secs}:${isoTime}`;
+    }
+
+    try {
+      await coStudyService.sendMessage({
+        roomId: joinedRoom.$id!,
+        senderId: "system",
+        senderName: "Focus Bot",
+        message: messageContent,
+        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        isSystem: true
+      });
+    } catch (err) {
+      console.error("Failed to send timer sync signal:", err);
     }
   };
 
@@ -322,6 +409,15 @@ export const CoStudyRooms: React.FC<{ onNavigateToBilling?: () => void }> = ({ o
 
       // 4. Register WebSocket/Event listeners for active updates
       unsubMsgRef.current = coStudyService.subscribeToMessages(room.$id!, (newMsg) => {
+        // Intercept timer sync signals
+        if (newMsg.message.startsWith("TIMER_SYNC:")) {
+          const isHost = room.creatorId === userId;
+          if (!isHost) {
+            handleTimerSyncMessage(newMsg.message);
+          }
+          return; // Suppress from chat log state
+        }
+
         setChatLogs(prev => {
           if (prev.some(m => m.$id === newMsg.$id)) return prev;
 
@@ -702,7 +798,7 @@ export const CoStudyRooms: React.FC<{ onNavigateToBilling?: () => void }> = ({ o
               </div>
             </div>
 
-            <div className="flex items-center gap-2.5 shrink-0 self-start sm:self-center">
+            <div className="flex flex-wrap items-center gap-2 shrink-0 self-start sm:self-center">
               <Button
                 onClick={() => {
                   const inviteLink = `${window.location.origin}?join=${joinedRoom.$id || (joinedRoom as any).id}`;
@@ -729,9 +825,38 @@ export const CoStudyRooms: React.FC<{ onNavigateToBilling?: () => void }> = ({ o
             </div>
           </div>
 
+          {/* Mobile Tab Bar (Visible only on mobile/tablet) */}
+          <div className="flex lg:hidden border border-border/60 bg-card/45 backdrop-blur-md rounded-2xl p-1 gap-1">
+            <button
+              onClick={() => setActiveMobileTab("focus")}
+              className={`flex-1 py-2.5 rounded-xl text-xs font-black transition-all cursor-pointer text-center ${
+                activeMobileTab === "focus"
+                  ? "bg-indigo-600 text-white shadow-sm"
+                  : "text-muted-foreground hover:bg-accent/40 hover:text-foreground"
+              }`}
+            >
+              ⏳ Focus & Music
+            </button>
+            <button
+              onClick={() => setActiveMobileTab("chat")}
+              className={`flex-1 py-2.5 rounded-xl text-xs font-black transition-all cursor-pointer text-center flex items-center justify-center gap-1.5 ${
+                activeMobileTab === "chat"
+                  ? "bg-indigo-600 text-white shadow-sm"
+                  : "text-muted-foreground hover:bg-accent/40 hover:text-foreground"
+              }`}
+            >
+              💬 Chat & Peers
+              {chatLogs.length > 0 && (
+                <span className="bg-red-500 text-white text-[9px] font-black px-1.5 py-0.5 rounded-full min-w-[18px] text-center">
+                  {chatLogs.length}
+                </span>
+              )}
+            </button>
+          </div>
+
           <div className="grid gap-6 lg:grid-cols-3">
             {/* LEFT 2 COLUMNS: Timer & Lofi tuners */}
-            <div className="lg:col-span-2 space-y-6">
+            <div className={`lg:col-span-2 space-y-6 ${activeMobileTab === "focus" ? "block" : "hidden lg:block"}`}>
               {/* Pomodoro Timer widget */}
               <Card className="border border-border/60 overflow-hidden relative shadow-lg bg-card/65 backdrop-blur-md transition-all duration-300 hover:shadow-xl">
                 <div className={`absolute top-0 inset-x-0 h-1.5 transition-all duration-500 ${timerMode === "work" ? "bg-indigo-600 animate-pulse" : "bg-emerald-500"}`} />
@@ -760,7 +885,9 @@ export const CoStudyRooms: React.FC<{ onNavigateToBilling?: () => void }> = ({ o
                           toast.error("Only the Host can play/pause the synchronized clock.");
                           return;
                         }
-                        setTimerActive(!timerActive);
+                        const nextActive = !timerActive;
+                        setTimerActive(nextActive);
+                        sendTimerSyncSignal(nextActive ? "PLAY" : "PAUSE", minutes, seconds);
                       }}
                       className={`h-12 w-12 rounded-full cursor-pointer transition-all duration-300 transform active:scale-95 shadow-md ${
                         timerActive
@@ -784,6 +911,7 @@ export const CoStudyRooms: React.FC<{ onNavigateToBilling?: () => void }> = ({ o
                         setMinutes(25);
                         setSeconds(0);
                         coStudyService.updateRoomTimer(joinedRoom.$id!, { timerMode: "work" });
+                        sendTimerSyncSignal("RESET", 25, 0);
                         toast.info("Timer reset to 25m focus block.");
                       }}
                       className="h-10 w-10 rounded-full border-border/80 text-muted-foreground hover:text-foreground cursor-pointer transition-transform duration-200 active:scale-90 hover:rotate-180"
@@ -802,9 +930,11 @@ export const CoStudyRooms: React.FC<{ onNavigateToBilling?: () => void }> = ({ o
                         setTimerActive(false);
                         const next = timerMode === "work" ? "break" : "work";
                         setTimerMode(next);
-                        setMinutes(next === "work" ? 25 : 5);
+                        const nextMins = next === "work" ? 25 : 5;
+                        setMinutes(nextMins);
                         setSeconds(0);
                         coStudyService.updateRoomTimer(joinedRoom.$id!, { timerMode: next });
+                        sendTimerSyncSignal("SWITCH", nextMins, 0, next);
                         toast.info(`Switched to: ${next}`);
                       }}
                       className="text-xs h-10 rounded-xl border-border/80 gap-1.5 cursor-pointer hover:bg-accent transition-colors px-3.5 font-bold"
@@ -995,7 +1125,7 @@ export const CoStudyRooms: React.FC<{ onNavigateToBilling?: () => void }> = ({ o
             </div>
 
             {/* RIGHT COLUMN: Live Group Chat & Status Updates */}
-            <div className="lg:col-span-1 space-y-6 flex flex-col">
+            <div className={`lg:col-span-1 space-y-6 flex flex-col ${activeMobileTab === "chat" ? "block" : "hidden lg:block"}`}>
               {/* Group chat window */}
               <Card className="border border-border/60 shadow-sm flex flex-col h-[550px]">
                 <CardHeader className="border-b border-border/60 py-4">
