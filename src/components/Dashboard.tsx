@@ -87,7 +87,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
         await Promise.all([
           databaseService.getTasks(resolvedUserId, 100),
           databaseService.getExams(resolvedUserId),
-          databaseService.getPomodoroSessions(resolvedUserId, 100),
+          databaseService.getPomodoroSessions(resolvedUserId, 500),
           databaseService.getSubjects(resolvedUserId),
           databaseService
             .getQuizzes(resolvedUserId)
@@ -163,8 +163,70 @@ export const Dashboard: React.FC<DashboardProps> = ({
     return daysUntil >= 0 && daysUntil <= 3;
   });
 
-  const studyStreak =
-    pomodoroSessions.length > 0 ? Math.min(pomodoroSessions.length, 7) : 0;
+  const studyStreak = useMemo(() => {
+    const uniqueDates = new Set<string>();
+
+    const getLocalDateString = (dateInput: string | Date) => {
+      if (typeof dateInput === "string" && /^\d{4}-\d{2}-\d{2}$/.test(dateInput)) {
+        return dateInput;
+      }
+      const date = new Date(dateInput);
+      if (isNaN(date.getTime())) return null;
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, "0");
+      const day = String(date.getDate()).padStart(2, "0");
+      return `${year}-${month}-${day}`;
+    };
+
+    // 1. Pomodoro sessions
+    pomodoroSessions.forEach((s) => {
+      const d = getLocalDateString(s.createdAt);
+      if (d) uniqueDates.add(d);
+    });
+
+    // 2. Completed tasks
+    tasks.forEach((t) => {
+      if (t.status === "completed") {
+        const d = getLocalDateString(t.completedAt || t.dueDate || t.createdAt);
+        if (d) uniqueDates.add(d);
+      }
+    });
+
+    // 3. Quizzes
+    quizzes.forEach((q) => {
+      const d = getLocalDateString(q.createdAt);
+      if (d) uniqueDates.add(d);
+    });
+
+    if (uniqueDates.size === 0) return 0;
+
+    const todayStr = getLocalDateString(new Date())!;
+    const yesterday = new Date();
+    yesterday.setDate(yesterday.getDate() - 1);
+    const yesterdayStr = getLocalDateString(yesterday)!;
+
+    // If neither today nor yesterday is active, streak is broken / 0
+    if (!uniqueDates.has(todayStr) && !uniqueDates.has(yesterdayStr)) {
+      return 0;
+    }
+
+    // Start from the most recent active day (either today or yesterday)
+    let currentCheckDate = uniqueDates.has(todayStr) ? new Date() : yesterday;
+    let streak = 0;
+
+    while (true) {
+      const checkStr = getLocalDateString(currentCheckDate)!;
+      if (uniqueDates.has(checkStr)) {
+        streak++;
+        // Move to previous day
+        currentCheckDate.setDate(currentCheckDate.getDate() - 1);
+      } else {
+        break;
+      }
+    }
+
+    return streak;
+  }, [pomodoroSessions, tasks, quizzes]);
 
   const totalStudyMinutes = pomodoroSessions.reduce(
     (acc, s) => acc + s.duration,
