@@ -42,6 +42,134 @@ import { useAuth } from "../contexts/AuthContext";
 import { toast } from "sonner";
 import jsPDF from "jspdf";
 
+// ============================================================================
+// PDF BEAUTIFICATION HELPERS (Markdown Segment Parsing, Wrap, and Draw)
+// ============================================================================
+
+// Helper to parse markdown bold/italic segments
+const parseMarkdownSegments = (text: string): { text: string; bold: boolean }[] => {
+  const segments: { text: string; bold: boolean }[] = [];
+  const regex = /(\*\*.*?\*\*|\*.*?\*)/g;
+  const parts = text.split(regex);
+  for (const part of parts) {
+    if (part.startsWith("**") && part.endsWith("**")) {
+      segments.push({ text: part.slice(2, -2), bold: true });
+    } else if (part.startsWith("*") && part.endsWith("*")) {
+      segments.push({ text: part.slice(1, -1), bold: true });
+    } else {
+      segments.push({ text: part, bold: false });
+    }
+  }
+  return segments;
+};
+
+// Helper to wrap segments into lines of a maximum width
+const wrapSegments = (
+  doc: jsPDF,
+  segments: { text: string; bold: boolean }[],
+  contentWidth: number,
+  baseFontName: string,
+  baseFontSize: number
+): { text: string; bold: boolean }[][] => {
+  const lines: { text: string; bold: boolean }[][] = [];
+  let currentLine: { text: string; bold: boolean }[] = [];
+  let currentLineWidth = 0;
+
+  for (const seg of segments) {
+    if (!seg.text) currentLine.push({ text: " ", bold: false });
+
+    // Split segment into words, preserving spaces
+    const words = seg.text.split(/(\s+)/);
+
+    for (const word of words) {
+      if (!word) continue;
+
+      doc.setFont(baseFontName, seg.bold ? "bold" : "normal");
+      doc.setFontSize(baseFontSize);
+      const wordWidth = doc.getTextWidth(word);
+
+      if (currentLineWidth + wordWidth > contentWidth) {
+        if (/^\s+$/.test(word)) continue; // skip leading space
+
+        lines.push(currentLine);
+        currentLine = [{ text: word, bold: seg.bold }];
+        currentLineWidth = wordWidth;
+      } else {
+        currentLine.push({ text: word, bold: seg.bold });
+        currentLineWidth += wordWidth;
+      }
+    }
+  }
+
+  if (currentLine.length > 0) {
+    lines.push(currentLine);
+  }
+
+  return lines;
+};
+
+// Main helper to render paragraphs with inline markdown and emoji cleaning
+const drawWrappedMarkdown = (
+  doc: jsPDF,
+  paragraph: string,
+  startX: number,
+  startY: number,
+  contentWidth: number,
+  lineHeight: number,
+  baseFontName: string,
+  baseFontSize: number,
+  baseColor: { r: number; g: number; b: number },
+  boldColor: { r: number; g: number; b: number },
+  pageHeight: number,
+  addPage: () => void
+): number => {
+  const cleanPara = paragraph
+    .replace(/[\u{1F600}-\u{1F64F}\u{1F300}-\u{1F5FF}\u{1F680}-\u{1F6FF}\u{1F700}-\u{1F7FF}\u{1F900}-\u{1F9FF}\u{1FA00}-\u{1FAFF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}\u{2B50}\u{2934}\u{2935}\u{2190}-\u{21FF}]/gu, "")
+    .replace(/[^\x00-\x7F\u00A0-\u00FF\u2013\u2014\u2022]/g, "");
+
+  const segments = parseMarkdownSegments(cleanPara);
+  const wrappedLines = wrapSegments(doc, segments, contentWidth, baseFontName, baseFontSize);
+
+  let currentY = startY;
+
+  for (const line of wrappedLines) {
+    if (currentY + lineHeight > pageHeight - 22) {
+      addPage();
+      currentY = 20;
+    }
+    
+    let currentX = startX;
+
+    for (const seg of line) {
+      doc.setFont(baseFontName, seg.bold ? "bold" : "normal");
+      doc.setFontSize(baseFontSize);
+      doc.setTextColor(
+        seg.bold ? boldColor.r : baseColor.r,
+        seg.bold ? boldColor.g : baseColor.g,
+        seg.bold ? boldColor.b : baseColor.b
+      );
+      doc.text(seg.text, currentX, currentY);
+      currentX += doc.getTextWidth(seg.text);
+    }
+
+    currentY += lineHeight;
+  }
+
+  return currentY;
+};
+
+// Helper to clean emojis from text headers
+const cleanText = (text: string) => {
+  if (!text) return "";
+  return text
+    .replace(/[\u{1F600}-\u{1F64F}\u{1F300}-\u{1F5FF}\u{1F680}-\u{1F6FF}\u{1F700}-\u{1F7FF}\u{1F900}-\u{1F9FF}\u{1FA00}-\u{1FAFF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}\u{2B50}\u{2934}\u{2935}\u{2190}-\u{21FF}]/gu, "")
+    .replace(/[^\x00-\x7F\u00A0-\u00FF\u2013\u2014\u2022]/g, "");
+};
+
+// ============================================================================
+// MAIN COMPONENT
+// ============================================================================
+
 interface ParsedQuestion {
   number: number;
   text: string;
@@ -475,36 +603,336 @@ export const AiDocumentHub: React.FC = () => {
   const handleDownloadPDF = (item: HistoryItem | { type: string; title: string; content: string }) => {
     try {
       const doc = new jsPDF({ unit: "mm", format: "a4" });
-      const marginL = 20;
-      const contentW = doc.internal.pageSize.getWidth() - 40;
+      const pageW = doc.internal.pageSize.getWidth();
+      const pageH = doc.internal.pageSize.getHeight();
+      const marginL = 18;
+      const marginR = 18;
+      const contentW = pageW - marginL - marginR;
       
-      const typeLabel = item.type === "summary" ? "Academic Summary" :
-                        item.type === "roadmap" ? "Learning Roadmap" :
-                        item.type === "quiz" ? "Practice Quiz" : "Study Flashcards";
+      const isQuiz = item.type === "quiz";
+      const isRoadmap = item.type === "roadmap";
+      const isFlashcard = item.type === "flashcards";
+      const isSummary = item.type === "summary";
 
-      doc.setFillColor(79, 70, 229);
-      doc.rect(0, 0, doc.internal.pageSize.getWidth(), 30, "F");
+      const typeLabel = isSummary ? "Academic Summary" :
+                        isRoadmap ? "Learning Roadmap" :
+                        isQuiz ? "Practice Quiz" : "Study Flashcards";
+
+      const title = isSummary ? "Document Academic Summary" :
+                    isRoadmap ? "Document Learning Roadmap" :
+                    isQuiz ? "Document Practice Quiz" : "Document Flashcards Decks";
       
-      doc.setFont("helvetica", "bold");
-      doc.setFontSize(18);
-      doc.setTextColor(255, 255, 255);
-      doc.text(typeLabel, marginL, 18);
+      let y = 0;
 
-      doc.setFont("helvetica", "normal");
-      doc.setFontSize(9);
-      doc.setTextColor(220, 240, 255);
-      doc.text(`Title: ${item.title}`, marginL, 24);
+      // Color palettes for different study asset types
+      const teal = { r: 13, g: 148, b: 136 };
+      const darkTeal = { r: 15, g: 118, b: 110 };
+      const tealBg = { r: 240, g: 253, b: 250 };
 
-      doc.setFontSize(10);
-      doc.setTextColor(50, 50, 50);
+      const violet = { r: 124, g: 58, b: 237 };
+      const darkViolet = { r: 91, g: 33, b: 182 };
+      const violetBg = { r: 245, g: 243, b: 255 };
 
-      const splitText = doc.splitTextToSize(item.content, contentW);
-      doc.text(splitText, marginL, 45);
-      doc.save(`ai-hub-${item.type}-${Date.now()}.pdf`);
-      toast.success("PDF exported successfully!");
+      const amber = { r: 217, g: 119, b: 6 };
+      const darkAmber = { r: 180, g: 83, b: 9 };
+      const amberBg = { r: 254, g: 243, b: 199 };
+
+      const rose = { r: 225, g: 29, b: 72 };
+      const darkRose = { r: 190, g: 24, b: 74 };
+      const roseBg = { r: 255, g: 241, b: 242 };
+
+      // Select palette based on type
+      let primary = teal;
+      let primaryDark = darkTeal;
+      let primaryBg = tealBg;
+
+      if (isRoadmap) {
+        primary = amber;
+        primaryDark = darkAmber;
+        primaryBg = amberBg;
+      } else if (isQuiz) {
+        primary = violet;
+        primaryDark = darkViolet;
+        primaryBg = violetBg;
+      } else if (isFlashcard) {
+        primary = rose;
+        primaryDark = darkRose;
+        primaryBg = roseBg;
+      }
+
+      const gray50 = { r: 249, g: 250, b: 251 };
+      const gray100 = { r: 243, g: 244, b: 246 };
+      const gray300 = { r: 209, g: 213, b: 219 };
+      const gray505 = { r: 107, g: 114, b: 128 };
+      const gray700 = { r: 55, g: 65, b: 81 };
+      const gray900 = { r: 17, g: 24, b: 39 };
+
+      const ensureSpace = (needed: number) => {
+        if (y + needed > pageH - 22) {
+          doc.addPage();
+          y = 20;
+        }
+      };
+
+      // Header drawing
+      const drawHeader = (isFirst: boolean) => {
+        doc.setFillColor(primary.r, primary.g, primary.b);
+        doc.rect(0, 0, pageW, isFirst ? 42 : 12, "F");
+        
+        doc.setFillColor(primaryDark.r, primaryDark.g, primaryDark.b);
+        doc.rect(0, 0, pageW, 3.5, "F");
+
+        if (isFirst) {
+          doc.setFont("helvetica", "bold");
+          doc.setFontSize(21);
+          doc.setTextColor(255, 255, 255);
+          doc.text("AI Document Hub", marginL, 18);
+
+          doc.setFontSize(9);
+          doc.setFont("helvetica", "normal");
+          const badgeText = `  ${title}  `;
+          const badgeW = doc.getTextWidth(badgeText) + 4;
+          doc.setFillColor(255, 255, 255);
+          doc.roundedRect(marginL, 23, badgeW, 6.5, 1.5, 1.5, "F");
+          doc.setTextColor(primary.r, primary.g, primary.b);
+          doc.text(badgeText.trim(), marginL + 2, 27.2);
+
+          // Date
+          doc.setTextColor(220, 240, 255);
+          doc.setFontSize(8);
+          const createdDate = "rawObject" in item && item.rawObject?.createdAt ? new Date(item.rawObject.createdAt) : new Date();
+          doc.text(
+            createdDate.toLocaleDateString("en-US", {
+              year: "numeric",
+              month: "long",
+              day: "numeric",
+            }),
+            pageW - marginR,
+            15,
+            { align: "right" }
+          );
+          doc.text(
+            createdDate.toLocaleTimeString("en-US", {
+              hour: "2-digit",
+              minute: "2-digit",
+            }),
+            pageW - marginR,
+            20,
+            { align: "right" }
+          );
+
+          y = 48;
+
+          // Topic title
+          doc.setFontSize(11);
+          doc.setFont("helvetica", "bold");
+          doc.setTextColor(gray900.r, gray900.g, gray900.b);
+          const topicLabel = item.title.trim() || "General Study Notes";
+          const topicLines = doc.splitTextToSize(topicLabel, contentW);
+          doc.text(topicLines, marginL, y);
+          y += topicLines.length * 5 + 2;
+
+          // Badges
+          doc.setFont("helvetica", "normal");
+          doc.setFontSize(7.5);
+          const badges = [
+            `Asset: ${typeLabel}`,
+            `Format: PDF Direct`,
+            `Created: ${createdDate.toLocaleDateString()}`,
+          ];
+          let badgeX = marginL;
+          for (const badge of badges) {
+            const bw = doc.getTextWidth(badge) + 6;
+            doc.setFillColor(gray50.r, gray50.g, gray50.b);
+            doc.setDrawColor(gray300.r, gray300.g, gray300.b);
+            doc.roundedRect(badgeX, y - 3.5, bw, 5.5, 1, 1, "FD");
+            doc.setTextColor(gray700.r, gray700.g, gray700.b);
+            doc.text(badge, badgeX + 3, y);
+            badgeX += bw + 3;
+          }
+          y += 8;
+
+          doc.setDrawColor(gray300.r, gray300.g, gray300.b);
+          doc.setLineWidth(0.3);
+          doc.line(marginL, y, pageW - marginR, y);
+          y += 7;
+        } else {
+          y = 18;
+        }
+      };
+
+      const drawFooters = () => {
+        const total = doc.getNumberOfPages();
+        for (let p = 1; p <= total; p++) {
+          doc.setPage(p);
+          doc.setDrawColor(gray300.r, gray300.g, gray300.b);
+          doc.setLineWidth(0.2);
+          doc.line(marginL, pageH - 14, pageW - marginR, pageH - 14);
+          doc.setFont("helvetica", "normal");
+          doc.setFontSize(7);
+          doc.setTextColor(gray505.r, gray505.g, gray505.b);
+          doc.text("AI Study Assistant Hub — Study Planner", marginL, pageH - 9);
+          doc.text(`Page ${p} of ${total}`, pageW - marginR, pageH - 9, {
+            align: "right",
+          });
+        }
+      };
+
+      drawHeader(true);
+
+      const lines = item.content.split("\n");
+
+      for (let i = 0; i < lines.length; i++) {
+        const line = lines[i];
+        const trimmed = line.trim();
+        if (!trimmed) {
+          y += 3;
+          continue;
+        }
+
+        // Section headings (e.g. KEY POINTS:, SUMMARY:)
+        if (
+          /^(TITLE:|KEY POINTS:|IMPORTANT TERMS:|KEY FORMULAS|MEMORY TRICKS|OVERVIEW:|MAIN CONCEPTS:|EXAMPLES|SUMMARY:|DETAILED EXPLANATION:|CASE STUDIES:|STUDY ROADMAP:|QUIZ DETAILS:|FLASHCARD LIST:)/i.test(
+            trimmed
+          )
+        ) {
+          ensureSpace(14);
+          if (y > 55) y += 4;
+
+          const cleanHeading = cleanText(trimmed);
+          const hLines = doc.splitTextToSize(cleanHeading, contentW - 10);
+          const blockH = hLines.length * 5 + 5;
+          doc.setFillColor(primaryBg.r, primaryBg.g, primaryBg.b);
+          doc.roundedRect(marginL, y - 4, contentW, blockH, 1.5, 1.5, "F");
+          doc.setFillColor(primary.r, primary.g, primary.b);
+          doc.roundedRect(marginL, y - 4, 1.5, blockH, 0.7, 0.7, "F");
+
+          doc.setFont("helvetica", "bold");
+          doc.setFontSize(11);
+          doc.setTextColor(primaryDark.r, primaryDark.g, primaryDark.b);
+          doc.text(hLines, marginL + 6, y + 1);
+          y += blockH + 3;
+          continue;
+        }
+
+        // Concept sub-headings or questions starting with Q1. / Q2. / 1. / 2.
+        if (/^(Q\d+\.|^\d+\.)\s/.test(trimmed) && trimmed.length < 120) {
+          ensureSpace(12);
+          y += 2;
+
+          const cleanConcept = cleanText(trimmed);
+          const numLines = doc.splitTextToSize(cleanConcept, contentW - 10);
+          const blockH = numLines.length * 5 + 4;
+          doc.setFillColor(gray100.r, gray100.g, gray100.b);
+          doc.roundedRect(marginL, y - 4, contentW, blockH, 1.5, 1.5, "F");
+          doc.setFillColor(primary.r, primary.g, primary.b);
+          doc.roundedRect(marginL, y - 4, 1.2, blockH, 0.6, 0.6, "F");
+
+          doc.setFont("helvetica", "bold");
+          doc.setFontSize(10);
+          doc.setTextColor(gray900.r, gray900.g, gray900.b);
+          doc.text(numLines, marginL + 5, y);
+          y += blockH + 2;
+          continue;
+        }
+
+        // Bullet points
+        if (/^[-•]\s/.test(trimmed)) {
+          ensureSpace(7);
+          doc.setFillColor(primary.r, primary.g, primary.b);
+          doc.circle(marginL + 5, y - 1, 1, "F");
+
+          y = drawWrappedMarkdown(
+            doc,
+            trimmed.replace(/^[-•]\s*/, ""),
+            marginL + 9,
+            y,
+            contentW - 14,
+            4.5,
+            "helvetica",
+            9.5,
+            gray700,
+            gray900,
+            pageH,
+            () => doc.addPage()
+          );
+          continue;
+        }
+
+        // Definition lines (Term: definition)
+        if (/^[-•]?\s*[A-Z][\w\s]+:/.test(trimmed) && trimmed.includes(":")) {
+          ensureSpace(8);
+          const colonIdx = trimmed.indexOf(":");
+          const term = cleanText(trimmed.slice(0, colonIdx + 1));
+          const definition = trimmed.slice(colonIdx + 1).trim();
+
+          doc.setFillColor(amberBg.r, amberBg.g, amberBg.b);
+          const termW = doc.getTextWidth(term) + 6;
+          doc.roundedRect(marginL + 4, y - 3.5, termW, 5.5, 1, 1, "F");
+
+          doc.setFont("helvetica", "bold");
+          doc.setFontSize(9.5);
+          doc.setTextColor(darkAmber.r, darkAmber.g, darkAmber.b);
+          doc.text(term, marginL + 7, y);
+
+          if (definition) {
+            y = drawWrappedMarkdown(
+              doc,
+              definition,
+              marginL + 7 + termW + 2,
+              y,
+              contentW - termW - 12,
+              4.5,
+              "helvetica",
+              9.5,
+              gray700,
+              gray900,
+              pageH,
+              () => doc.addPage()
+            );
+          } else {
+            y += 6;
+          }
+          continue;
+        }
+
+        // Default paragraph line
+        y = drawWrappedMarkdown(
+          doc,
+          trimmed,
+          marginL + 2,
+          y,
+          contentW - 4,
+          4.5,
+          "helvetica",
+          9.5,
+          gray700,
+          gray900,
+          pageH,
+          () => doc.addPage()
+        );
+      }
+
+      // Add headers on pages 2+
+      const totalPages = doc.getNumberOfPages();
+      for (let p = 2; p <= totalPages; p++) {
+        doc.setPage(p);
+        doc.setFillColor(primary.r, primary.g, primary.b);
+        doc.rect(0, 0, pageW, 12, "F");
+        doc.setFillColor(primaryDark.r, primaryDark.g, primaryDark.b);
+        doc.rect(0, 0, pageW, 2.5, "F");
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(8);
+        doc.setTextColor(255, 255, 255);
+        doc.text(`AI Document Hub  —  ${title}`, marginL, 8);
+      }
+
+      drawFooters();
+      doc.save(`notes-${item.type}-${item.title.trim().replace(/\s+/g, "-").toLowerCase()}-${Date.now()}.pdf`);
+      toast.success("Beautiful PDF downloaded successfully!");
     } catch (pdfErr) {
       console.error(pdfErr);
-      toast.error("Failed to export PDF.");
+      toast.error("Failed to generate styled PDF.");
     }
   };
 
