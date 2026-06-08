@@ -97,6 +97,7 @@ export const CoStudyRooms: React.FC<{ onNavigateToBilling?: () => void }> = ({ o
   const secondsRef = useRef(seconds);
   const timerModeRef = useRef(timerMode);
   const joinedRoomRef = useRef(joinedRoom);
+  const targetEndTimeRef = useRef<number | null>(null);
 
   // Keep refs in sync with state
   useEffect(() => { minutesRef.current = minutes; }, [minutes]);
@@ -108,6 +109,7 @@ export const CoStudyRooms: React.FC<{ onNavigateToBilling?: () => void }> = ({ o
   const [chatLogs, setChatLogs] = useState<StudyRoomMessage[]>([]);
   const [typedMessage, setTypedMessage] = useState("");
   const chatEndRef = useRef<HTMLDivElement>(null);
+  const chatContainerRef = useRef<HTMLDivElement>(null);
 
   // Room peers
   const [peers, setPeers] = useState<StudyRoomMember[]>([]);
@@ -155,9 +157,12 @@ export const CoStudyRooms: React.FC<{ onNavigateToBilling?: () => void }> = ({ o
     }
   }, [joinedRoom, rooms]);
 
-  // Scroll to bottom of chat
+  // Scroll to bottom of chat (scoped to chat container only, not the page)
   useEffect(() => {
-    chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    const container = chatContainerRef.current;
+    if (container) {
+      container.scrollTop = container.scrollHeight;
+    }
   }, [chatLogs]);
 
   // Load Rooms list from database
@@ -224,10 +229,12 @@ export const CoStudyRooms: React.FC<{ onNavigateToBilling?: () => void }> = ({ o
           if (totalRemainingSecs > 0) {
             setMinutes(Math.floor(totalRemainingSecs / 60));
             setSeconds(totalRemainingSecs % 60);
+            targetEndTimeRef.current = Date.now() + totalRemainingSecs * 1000;
             setTimerActive(true);
           } else {
             setMinutes(0);
             setSeconds(0);
+            targetEndTimeRef.current = null;
             setTimerActive(false);
           }
         }
@@ -239,6 +246,7 @@ export const CoStudyRooms: React.FC<{ onNavigateToBilling?: () => void }> = ({ o
       const secs = parseInt(parts[3], 10);
       setMinutes(mins);
       setSeconds(secs);
+      targetEndTimeRef.current = null;
       setTimerActive(false);
     } else if (action === "RESET") {
       const mins = parseInt(parts[2], 10);
@@ -246,6 +254,7 @@ export const CoStudyRooms: React.FC<{ onNavigateToBilling?: () => void }> = ({ o
       setMinutes(mins);
       setSeconds(secs);
       setTimerMode("work");
+      targetEndTimeRef.current = null;
       setTimerActive(false);
     } else if (action === "SWITCH") {
       const mode = parts[2] as "work" | "break";
@@ -254,6 +263,7 @@ export const CoStudyRooms: React.FC<{ onNavigateToBilling?: () => void }> = ({ o
       setTimerMode(mode);
       setMinutes(mins);
       setSeconds(secs);
+      targetEndTimeRef.current = null;
       setTimerActive(false);
     }
   };
@@ -280,29 +290,49 @@ export const CoStudyRooms: React.FC<{ onNavigateToBilling?: () => void }> = ({ o
     }
   };
 
-  // Pomodoro Timer Engine — uses refs to avoid stale closures
+  // Pomodoro Timer Engine — uses refs to avoid stale closures and background throttling
   useEffect(() => {
     if (!timerActive) return;
 
-    const interval = setInterval(() => {
-      const currentSecs = secondsRef.current;
-      const currentMins = minutesRef.current;
+    if (targetEndTimeRef.current === null) {
+      targetEndTimeRef.current = Date.now() + (minutesRef.current * 60 + secondsRef.current) * 1000;
+    }
+
+    const updateRoomTimerLocal = () => {
+      const remainingMs = targetEndTimeRef.current! - Date.now();
+      const remainingSecs = Math.max(0, Math.ceil(remainingMs / 1000));
+      
+      const mins = Math.floor(remainingSecs / 60);
+      const secs = remainingSecs % 60;
+
+      setMinutes(mins);
+      setSeconds(secs);
+
       const currentRoom = joinedRoomRef.current;
       const isHost = currentRoom && currentRoom.creatorId === userId;
 
-      if (currentSecs === 0) {
-        if (currentMins === 0) {
-          triggerTimerCompletion(isHost);
-        } else {
-          setMinutes(currentMins - 1);
-          setSeconds(59);
-        }
-      } else {
-        setSeconds(currentSecs - 1);
+      if (remainingSecs <= 0) {
+        targetEndTimeRef.current = null;
+        triggerTimerCompletion(isHost);
       }
-    }, 1000);
+    };
 
-    return () => clearInterval(interval);
+    // Run every 500ms to ensure responsiveness
+    const interval = setInterval(updateRoomTimerLocal, 500);
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        updateRoomTimerLocal();
+      }
+    };
+
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
+    return () => {
+      clearInterval(interval);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+      targetEndTimeRef.current = null;
+    };
   }, [timerActive]);
 
   // Real-time Presence heartbeat pulses (every 15s) and idle pruner
@@ -1152,7 +1182,7 @@ export const CoStudyRooms: React.FC<{ onNavigateToBilling?: () => void }> = ({ o
                 <CardContent className="flex-1 flex flex-col justify-between p-4 overflow-hidden">
                   
                   {/* Chat messages listing container */}
-                  <div className="flex-1 overflow-y-auto space-y-3 pr-1 pb-3 scroll-smooth">
+                  <div ref={chatContainerRef} className="flex-1 overflow-y-auto space-y-3 pr-1 pb-3 scroll-smooth">
                     {chatLogs.map((log) => {
                       if (log.isSystem) {
                         return (

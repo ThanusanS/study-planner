@@ -60,10 +60,16 @@ export const PomodoroProvider: React.FC<{ children: React.ReactNode }> = ({
   const settingsRef = useRef(settings);
   const breakTypeRef = useRef(breakType);
   const cycleCountRef = useRef(cycleCount);
+  const timeLeftRef = useRef(timeLeft);
+  const expectedEndTimeRef = useRef<number | null>(null);
 
   useEffect(() => {
     modeRef.current = mode;
   }, [mode]);
+
+  useEffect(() => {
+    timeLeftRef.current = timeLeft;
+  }, [timeLeft]);
 
   useEffect(() => {
     sessionStartRef.current = sessionStart;
@@ -188,23 +194,43 @@ export const PomodoroProvider: React.FC<{ children: React.ReactNode }> = ({
       return undefined;
     }
 
-    const intervalId = setInterval(() => {
-      setTimeLeft((prev) => {
-        if (prev <= 1) {
-          handleTimerComplete();
-          return 0;
-        }
-        return prev - 1;
-      });
-    }, 1000);
+    if (expectedEndTimeRef.current === null) {
+      expectedEndTimeRef.current = Date.now() + timeLeftRef.current * 1000;
+    }
 
-    return () => clearInterval(intervalId);
+    const updateTimer = () => {
+      const remainingMs = expectedEndTimeRef.current! - Date.now();
+      const remainingSecs = Math.max(0, Math.ceil(remainingMs / 1000));
+
+      setTimeLeft(remainingSecs);
+
+      if (remainingSecs <= 0) {
+        expectedEndTimeRef.current = null;
+        handleTimerComplete();
+      }
+    };
+
+    const intervalId = setInterval(updateTimer, 500);
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        updateTimer();
+      }
+    };
+
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
+    return () => {
+      clearInterval(intervalId);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
   }, [isRunning]);
 
   const start = () => {
     if (modeRef.current === "focus" && !sessionStartRef.current) {
       setSessionStart(new Date());
     }
+    expectedEndTimeRef.current = Date.now() + timeLeftRef.current * 1000;
     setIsRunning(true);
 
     if ("Notification" in window && Notification.permission === "default") {
@@ -213,10 +239,17 @@ export const PomodoroProvider: React.FC<{ children: React.ReactNode }> = ({
   };
 
   const pause = () => {
+    if (expectedEndTimeRef.current !== null) {
+      const remainingMs = expectedEndTimeRef.current - Date.now();
+      const remainingSecs = Math.max(0, Math.ceil(remainingMs / 1000));
+      setTimeLeft(remainingSecs);
+    }
+    expectedEndTimeRef.current = null;
     setIsRunning(false);
   };
 
   const reset = () => {
+    expectedEndTimeRef.current = null;
     setIsRunning(false);
     setSessionStart(null);
     setTimeLeft(
@@ -239,6 +272,10 @@ export const PomodoroProvider: React.FC<{ children: React.ReactNode }> = ({
       setTimeLeft(
         getDurationSeconds(modeRef.current, breakTypeRef.current, nextSettings),
       );
+    } else {
+      const durationSecs = getDurationSeconds(modeRef.current, breakTypeRef.current, nextSettings);
+      expectedEndTimeRef.current = Date.now() + durationSecs * 1000;
+      setTimeLeft(durationSecs);
     }
   };
 
