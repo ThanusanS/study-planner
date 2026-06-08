@@ -1140,7 +1140,7 @@ export const CoStudyRooms: React.FC<{ onNavigateToBilling?: () => void }> = ({ o
             </div>
 
             {/* RIGHT COLUMN: Live Group Chat & Status Updates */}
-            <div className={`lg:col-span-1 space-y-6 flex flex-col ${activeMobileTab === "chat" ? "block" : "hidden lg:block"}`}>
+            <div className={`lg:col-span-1 space-y-6 ${activeMobileTab === "chat" ? "flex flex-col" : "hidden lg:flex lg:flex-col"}`}>
               {/* Group chat window */}
               <Card className="border border-border/60 shadow-sm flex flex-col h-[550px]">
                 <CardHeader className="border-b border-border/60 py-4">
