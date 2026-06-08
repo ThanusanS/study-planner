@@ -41,7 +41,7 @@ import { toast } from "sonner";
 
 // Pre-defined YouTube Embed streams for Lofi/Ambient Music
 const LOFI_PRESETS = [
-  { id: "lofi-girl", name: "Lofi Girl Radio", url: "https://www.youtube.com/embed/live_stream?channel=UC5leBQw2lC9D5V7n_oGg01g&autoplay=1" },
+  { id: "lofi-girl", name: "Lofi Girl Radio", url: "https://www.youtube.com/embed/lTRiuFIWV54?autoplay=1" },
   { id: "synthwave", name: "Synthwave Radio", url: "https://www.youtube.com/embed/F3Hk1Q-8mXk?autoplay=1" },
   { id: "piano", name: "Classical Study", url: "https://www.youtube.com/embed/z0ESIdRVkOg?autoplay=1" },
   { id: "rain", name: "Rain Ambient", url: "https://www.youtube.com/embed/WJ3-F02-F_Y?autoplay=1" }
@@ -91,6 +91,18 @@ export const CoStudyRooms: React.FC<{ onNavigateToBilling?: () => void }> = ({ o
   const [seconds, setSeconds] = useState(0);
   const [timerActive, setTimerActive] = useState(false);
   const [timerMode, setTimerMode] = useState<"work" | "break">("work");
+
+  // Refs to avoid stale closures in the timer interval
+  const minutesRef = useRef(minutes);
+  const secondsRef = useRef(seconds);
+  const timerModeRef = useRef(timerMode);
+  const joinedRoomRef = useRef(joinedRoom);
+
+  // Keep refs in sync with state
+  useEffect(() => { minutesRef.current = minutes; }, [minutes]);
+  useEffect(() => { secondsRef.current = seconds; }, [seconds]);
+  useEffect(() => { timerModeRef.current = timerMode; }, [timerMode]);
+  useEffect(() => { joinedRoomRef.current = joinedRoom; }, [joinedRoom]);
 
   // Chat log states
   const [chatLogs, setChatLogs] = useState<StudyRoomMessage[]>([]);
@@ -268,31 +280,30 @@ export const CoStudyRooms: React.FC<{ onNavigateToBilling?: () => void }> = ({ o
     }
   };
 
-  // Pomodoro Timer Engine
+  // Pomodoro Timer Engine — uses refs to avoid stale closures
   useEffect(() => {
-    let interval: any = null;
-    
-    // Only the host (creator) runs the active timer interval changes to database
-    const isHost = joinedRoom && joinedRoom.creatorId === userId;
+    if (!timerActive) return;
 
-    if (timerActive) {
-      interval = setInterval(() => {
-        if (seconds === 0) {
-          if (minutes === 0) {
-            triggerTimerCompletion(isHost);
-          } else {
-            setMinutes(minutes - 1);
-            setSeconds(59);
-          }
+    const interval = setInterval(() => {
+      const currentSecs = secondsRef.current;
+      const currentMins = minutesRef.current;
+      const currentRoom = joinedRoomRef.current;
+      const isHost = currentRoom && currentRoom.creatorId === userId;
+
+      if (currentSecs === 0) {
+        if (currentMins === 0) {
+          triggerTimerCompletion(isHost);
         } else {
-          setSeconds(seconds - 1);
+          setMinutes(currentMins - 1);
+          setSeconds(59);
         }
-      }, 1000);
-    } else {
-      clearInterval(interval);
-    }
+      } else {
+        setSeconds(currentSecs - 1);
+      }
+    }, 1000);
+
     return () => clearInterval(interval);
-  }, [timerActive, minutes, seconds, joinedRoom]);
+  }, [timerActive]);
 
   // Real-time Presence heartbeat pulses (every 15s) and idle pruner
   useEffect(() => {
@@ -334,17 +345,21 @@ export const CoStudyRooms: React.FC<{ onNavigateToBilling?: () => void }> = ({ o
       console.warn("Sound alert blocked by browser media policies", soundErr);
     }
 
-    const nextMode = timerMode === "work" ? "break" : "work";
+    // Read current values from refs to avoid stale closures
+    const currentTimerMode = timerModeRef.current;
+    const currentRoom = joinedRoomRef.current;
+
+    const nextMode = currentTimerMode === "work" ? "break" : "work";
     setTimerMode(nextMode);
     setMinutes(nextMode === "work" ? 25 : 5);
     setSeconds(0);
 
     if (nextMode === "break") {
       toast.success("Focus Session Complete! Take a break.");
-      if (isHost && joinedRoom) {
-        await coStudyService.updateRoomTimer(joinedRoom.$id!, { timerMode: "break" });
+      if (isHost && currentRoom) {
+        await coStudyService.updateRoomTimer(currentRoom.$id!, { timerMode: "break" });
         await coStudyService.sendMessage({
-          roomId: joinedRoom.$id!,
+          roomId: currentRoom.$id!,
           senderId: "system",
           senderName: "Focus Bot",
           message: "🚨 Focus block finished. Commencing 5-minute recovery break!",
@@ -354,10 +369,10 @@ export const CoStudyRooms: React.FC<{ onNavigateToBilling?: () => void }> = ({ o
       }
     } else {
       toast.info("Break finished! Time to study.");
-      if (isHost && joinedRoom) {
-        await coStudyService.updateRoomTimer(joinedRoom.$id!, { timerMode: "work" });
+      if (isHost && currentRoom) {
+        await coStudyService.updateRoomTimer(currentRoom.$id!, { timerMode: "work" });
         await coStudyService.sendMessage({
-          roomId: joinedRoom.$id!,
+          roomId: currentRoom.$id!,
           senderId: "system",
           senderName: "Focus Bot",
           message: "⚡ Break finished. Commencing 25-minute study block. Focus up!",
