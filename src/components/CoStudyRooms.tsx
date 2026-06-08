@@ -32,19 +32,25 @@ import {
   Send,
   Coffee,
   Crown,
-  Trash2
+  Trash2,
+  Radio,
+  Volume1
 } from "lucide-react";
 import planService, { UserPlan } from "../services/planService";
 import coStudyService, { StudyRoom, StudyRoomMessage, StudyRoomMember } from "../services/coStudyService";
 import { useAuth } from "../contexts/AuthContext";
 import { toast } from "sonner";
 
-// Pre-defined YouTube Embed streams for Lofi/Ambient Music
+// Pre-defined YouTube Embed streams for Lofi/Ambient Music and FM Radios
 const LOFI_PRESETS = [
   { id: "lofi-girl", name: "Lofi Girl Radio", url: "https://www.youtube.com/embed/lTRiuFIWV54?autoplay=1" },
   { id: "synthwave", name: "Synthwave Radio", url: "https://www.youtube.com/embed/F3Hk1Q-8mXk?autoplay=1" },
   { id: "piano", name: "Classical Study", url: "https://www.youtube.com/embed/z0ESIdRVkOg?autoplay=1" },
-  { id: "rain", name: "Rain Ambient", url: "https://www.youtube.com/embed/WJ3-F02-F_Y?autoplay=1" }
+  { id: "rain", name: "Rain Ambient", url: "https://www.youtube.com/embed/WJ3-F02-F_Y?autoplay=1" },
+  { id: "sirasa-fm", name: "Sirasa FM", url: "https://radio.garden/api/ara/content/listen/ZBLzLpft/channel.mp3", isRadio: true },
+  { id: "hiru-fm", name: "Hiru FM", url: "https://radio.garden/api/ara/content/listen/xyIbSGbn/channel.mp3", isRadio: true },
+  { id: "shakthi-fm", name: "Shakthi FM", url: "https://radio.garden/api/ara/content/listen/BlDkcUEv/channel.mp3", isRadio: true },
+  { id: "sooriyan-fm", name: "Sooriyan FM", url: "https://radio.garden/api/ara/content/listen/cuRx6MpV/channel.mp3", isRadio: true }
 ];
 
 // Helper to extract 11-char Video ID from YouTube URLs
@@ -85,6 +91,8 @@ export const CoStudyRooms: React.FC<{ onNavigateToBilling?: () => void }> = ({ o
   const [isMusicPlaying, setIsMusicPlaying] = useState(false);
   const [customUrl, setCustomUrl] = useState("");
   const [isCustomMode, setIsCustomMode] = useState(false);
+  const [isAudioPlayingState, setIsAudioPlayingState] = useState(true);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
 
   // Pomodoro timer states inside joined room
   const [minutes, setMinutes] = useState(25);
@@ -512,6 +520,12 @@ export const CoStudyRooms: React.FC<{ onNavigateToBilling?: () => void }> = ({ o
     setIsMusicPlaying(false);
     setChatLogs([]);
     setPeers([]);
+
+    // Stop any playing radio audio
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current = null;
+    }
 
     // Clear event triggers
     if (unsubMsgRef.current) unsubMsgRef.current();
@@ -991,16 +1005,16 @@ export const CoStudyRooms: React.FC<{ onNavigateToBilling?: () => void }> = ({ o
                 </CardContent>
               </Card>
 
-              {/* Lofi Tunes embedding player */}
+              {/* Music & Radio player */}
               <Card className="border border-border/60 shadow-sm overflow-hidden">
                 <CardHeader className="pb-3 border-b border-border/60">
                   <div className="flex items-center justify-between flex-wrap gap-2">
                     <CardTitle className="text-sm font-bold flex items-center gap-1.5">
                       <Tv className="w-4.5 h-4.5 text-indigo-500" />
-                      Background Lo-fi Deck
+                      Music & Radio Deck
                     </CardTitle>
                     <div className="flex items-center gap-1.5 bg-accent/40 px-2 py-1 rounded-lg border border-border/40 text-[10px] text-muted-foreground font-semibold">
-                      <span>YouTube Embed Player</span>
+                      <span>YouTube + FM Radio</span>
                     </div>
                   </div>
                 </CardHeader>
@@ -1011,17 +1025,24 @@ export const CoStudyRooms: React.FC<{ onNavigateToBilling?: () => void }> = ({ o
                       <button
                         key={preset.id}
                         onClick={() => {
+                          // Stop any currently playing audio element
+                          if (audioRef.current) {
+                            audioRef.current.pause();
+                            audioRef.current = null;
+                          }
                           setMusicPreset(preset);
                           setIsCustomMode(false);
                           setIsMusicPlaying(true);
+                          setIsAudioPlayingState(true);
                           toast.success(`Playing ${preset.name}!`);
                         }}
-                        className={`px-3 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap transition-colors cursor-pointer ${
+                        className={`px-3 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap transition-colors cursor-pointer flex items-center gap-1 ${
                           !isCustomMode && musicPreset.id === preset.id
                             ? "bg-indigo-600 text-white shadow-sm font-extrabold"
                             : "bg-accent/40 text-muted-foreground hover:bg-accent/70 hover:text-foreground"
                         }`}
                       >
+                        {(preset as any).isRadio && <Radio className="w-3 h-3" />}
                         {preset.name}
                       </button>
                     ))}
@@ -1078,23 +1099,111 @@ export const CoStudyRooms: React.FC<{ onNavigateToBilling?: () => void }> = ({ o
 
                   <div className="p-4 space-y-4">
                     {isMusicPlaying ? (
-                      <div className="aspect-video w-full rounded-2xl overflow-hidden border border-border bg-black shadow-inner relative">
-                        <iframe
-                          width="100%"
-                          height="100%"
-                          src={musicPreset.url}
-                          title="Lofi player"
-                          frameBorder="0"
-                          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-                          allowFullScreen
-                        />
-                      </div>
+                      (musicPreset as any).isRadio ? (
+                        /* ── FM Radio Player ── */
+                        <div className="w-full rounded-2xl overflow-hidden border border-border shadow-inner relative">
+                          <div className="bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-900 p-6 flex flex-col items-center gap-5">
+                            {/* Spinning vinyl disc */}
+                            <div className="relative">
+                              <div className={`w-28 h-28 rounded-full border-4 border-indigo-500/30 bg-gradient-to-br from-slate-800 to-slate-900 flex items-center justify-center shadow-[0_0_30px_rgba(99,102,241,0.2)] ${
+                                isAudioPlayingState ? "animate-spin" : ""
+                              }`} style={{ animationDuration: "3s" }}>
+                                <div className="w-12 h-12 rounded-full bg-gradient-to-br from-indigo-600 to-purple-600 flex items-center justify-center shadow-lg">
+                                  <Radio className="w-5 h-5 text-white" />
+                                </div>
+                                {/* Vinyl grooves */}
+                                <div className="absolute inset-4 rounded-full border border-white/5" />
+                                <div className="absolute inset-7 rounded-full border border-white/5" />
+                                <div className="absolute inset-10 rounded-full border border-white/5" />
+                              </div>
+                              {/* LIVE badge */}
+                              {isAudioPlayingState && (
+                                <span className="absolute -top-1 -right-1 flex items-center gap-1 bg-red-600 text-white text-[9px] font-extrabold px-2 py-0.5 rounded-full shadow-lg">
+                                  <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
+                                  LIVE
+                                </span>
+                              )}
+                            </div>
+
+                            {/* Station info */}
+                            <div className="text-center">
+                              <p className="text-white font-extrabold text-lg tracking-wide">{musicPreset.name}</p>
+                              <p className="text-indigo-300/70 text-[10px] font-medium mt-0.5">Sri Lanka • FM Radio • Live Stream</p>
+                            </div>
+
+                            {/* Play / Pause */}
+                            <div className="flex items-center gap-4">
+                              <Button
+                                onClick={() => {
+                                  if (audioRef.current) {
+                                    if (isAudioPlayingState) {
+                                      audioRef.current.pause();
+                                      setIsAudioPlayingState(false);
+                                    } else {
+                                      audioRef.current.play();
+                                      setIsAudioPlayingState(true);
+                                    }
+                                  }
+                                }}
+                                className="h-12 w-12 rounded-full bg-indigo-600 hover:bg-indigo-500 text-white shadow-lg shadow-indigo-600/30 flex items-center justify-center cursor-pointer transition-transform active:scale-90"
+                              >
+                                {isAudioPlayingState ? <Pause className="w-5 h-5" /> : <Play className="w-5 h-5 ml-0.5" />}
+                              </Button>
+                            </div>
+
+                            {/* Volume slider */}
+                            <div className="flex items-center gap-2 w-full max-w-[200px]">
+                              <Volume1 className="w-4 h-4 text-indigo-300/60" />
+                              <input
+                                type="range"
+                                min={0}
+                                max={100}
+                                defaultValue={80}
+                                onChange={(e) => {
+                                  if (audioRef.current) {
+                                    audioRef.current.volume = Number(e.target.value) / 100;
+                                  }
+                                }}
+                                className="w-full h-1 bg-indigo-800 rounded-lg appearance-none cursor-pointer accent-indigo-500"
+                              />
+                              <Volume2 className="w-4 h-4 text-indigo-300/60" />
+                            </div>
+                          </div>
+
+                          {/* Hidden HTML5 audio element */}
+                          <audio
+                            ref={(el) => {
+                              if (el && el !== audioRef.current) {
+                                audioRef.current = el;
+                                el.volume = 0.8;
+                                el.play().catch(() => {});
+                              }
+                            }}
+                            src={musicPreset.url}
+                            autoPlay
+                            style={{ display: "none" }}
+                          />
+                        </div>
+                      ) : (
+                        /* ── YouTube iframe player ── */
+                        <div className="aspect-video w-full rounded-2xl overflow-hidden border border-border bg-black shadow-inner relative">
+                          <iframe
+                            width="100%"
+                            height="100%"
+                            src={musicPreset.url}
+                            title="Lofi player"
+                            frameBorder="0"
+                            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                            allowFullScreen
+                          />
+                        </div>
+                      )
                     ) : (
                       <div className="text-center py-10 bg-accent/30 rounded-2xl border border-dashed border-border/70 space-y-3 flex flex-col items-center">
                         <Volume2 className="h-8 w-8 text-indigo-500 animate-bounce" />
                         <div>
-                          <p className="text-xs font-bold text-foreground">Need background lofi focus tunes?</p>
-                          <p className="text-[10px] text-muted-foreground mt-0.5">Click to play high-quality embedded YouTube streams.</p>
+                          <p className="text-xs font-bold text-foreground">Need background lofi focus tunes or FM radio?</p>
+                          <p className="text-[10px] text-muted-foreground mt-0.5">Select a preset above or use the custom stream option.</p>
                         </div>
                         <Button
                           onClick={() => {
@@ -1113,6 +1222,7 @@ export const CoStudyRooms: React.FC<{ onNavigateToBilling?: () => void }> = ({ o
                               }
                             } else {
                               setIsMusicPlaying(true);
+                              setIsAudioPlayingState(true);
                               toast.success(`Playing ${musicPreset.name}!`);
                             }
                           }}
