@@ -92,7 +92,28 @@ export const CoStudyRooms: React.FC<{ onNavigateToBilling?: () => void }> = ({ o
   const [customUrl, setCustomUrl] = useState("");
   const [isCustomMode, setIsCustomMode] = useState(false);
   const [isAudioPlayingState, setIsAudioPlayingState] = useState(true);
+  const [isAudioConnecting, setIsAudioConnecting] = useState(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
+
+  // Synchronize audio element playback state with react state
+  useEffect(() => {
+    if (audioRef.current) {
+      if (isAudioPlayingState) {
+        audioRef.current.play().catch((err) => {
+          console.warn("Audio playback failed or was interrupted:", err);
+        });
+      } else {
+        audioRef.current.pause();
+      }
+    }
+
+    // Cleanup on unmount or stream change
+    return () => {
+      if (audioRef.current) {
+        audioRef.current.pause();
+      }
+    };
+  }, [isAudioPlayingState, musicPreset.url]);
 
   // Pomodoro timer states inside joined room
   const [minutes, setMinutes] = useState(25);
@@ -526,6 +547,7 @@ export const CoStudyRooms: React.FC<{ onNavigateToBilling?: () => void }> = ({ o
       audioRef.current.pause();
       audioRef.current = null;
     }
+    setIsAudioConnecting(false);
 
     // Clear event triggers
     if (unsubMsgRef.current) unsubMsgRef.current();
@@ -1034,6 +1056,7 @@ export const CoStudyRooms: React.FC<{ onNavigateToBilling?: () => void }> = ({ o
                           setIsCustomMode(false);
                           setIsMusicPlaying(true);
                           setIsAudioPlayingState(true);
+                          setIsAudioConnecting(preset.isRadio || false);
                           toast.success(`Playing ${preset.name}!`);
                         }}
                         className={`px-3 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap transition-colors cursor-pointer flex items-center gap-1 ${
@@ -1066,7 +1089,7 @@ export const CoStudyRooms: React.FC<{ onNavigateToBilling?: () => void }> = ({ o
                       <div className="flex gap-2">
                         <input
                           type="text"
-                          placeholder="Paste YouTube Video URL or ID..."
+                          placeholder="YouTube link/ID or Audio stream URL..."
                           value={customUrl}
                           onChange={(e) => setCustomUrl(e.target.value)}
                           className="flex-1 px-3 py-1.5 rounded-xl border border-border bg-background/70 text-xs font-medium focus:outline-none focus:ring-1 focus:ring-indigo-500 placeholder:text-muted-foreground/60 text-foreground"
@@ -1075,15 +1098,35 @@ export const CoStudyRooms: React.FC<{ onNavigateToBilling?: () => void }> = ({ o
                           onClick={() => {
                             const videoId = getYoutubeVideoId(customUrl);
                             if (videoId) {
+                              if (audioRef.current) {
+                                audioRef.current.pause();
+                                audioRef.current = null;
+                              }
                               setMusicPreset({
                                 id: "custom",
                                 name: "Custom Stream",
                                 url: `https://www.youtube.com/embed/${videoId}?autoplay=1`
                               });
                               setIsMusicPlaying(true);
+                              setIsAudioPlayingState(false);
                               toast.success("Playing custom YouTube stream!");
+                            } else if (customUrl.trim().startsWith("http://") || customUrl.trim().startsWith("https://")) {
+                              if (audioRef.current) {
+                                audioRef.current.pause();
+                                audioRef.current = null;
+                              }
+                              setMusicPreset({
+                                id: "custom",
+                                name: "Custom Audio Stream",
+                                url: customUrl.trim(),
+                                isRadio: true
+                              } as any);
+                              setIsMusicPlaying(true);
+                              setIsAudioPlayingState(true);
+                              setIsAudioConnecting(true);
+                              toast.success("Playing custom audio stream!");
                             } else {
-                              toast.error("Invalid YouTube URL or Video ID.");
+                              toast.error("Invalid URL. Enter a YouTube URL or direct audio link.");
                             }
                           }}
                           className="bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold px-3 py-1.5 rounded-xl shrink-0"
@@ -1092,7 +1135,7 @@ export const CoStudyRooms: React.FC<{ onNavigateToBilling?: () => void }> = ({ o
                         </Button>
                       </div>
                       <p className="text-[10px] text-muted-foreground/80 mt-1">
-                        Supports standard watch links, youtu.be, embed, or 11-char IDs.
+                        Supports YouTube links/IDs or direct audio/radio stream links (HTTP/HTTPS).
                       </p>
                     </div>
                   )}
@@ -1106,7 +1149,7 @@ export const CoStudyRooms: React.FC<{ onNavigateToBilling?: () => void }> = ({ o
                             {/* Spinning vinyl disc */}
                             <div className="relative">
                               <div className={`w-28 h-28 rounded-full border-4 border-indigo-500/30 bg-gradient-to-br from-slate-800 to-slate-900 flex items-center justify-center shadow-[0_0_30px_rgba(99,102,241,0.2)] ${
-                                isAudioPlayingState ? "animate-spin" : ""
+                                isAudioPlayingState && !isAudioConnecting ? "animate-spin" : ""
                               }`} style={{ animationDuration: "3s" }}>
                                 <div className="w-12 h-12 rounded-full bg-gradient-to-br from-indigo-600 to-purple-600 flex items-center justify-center shadow-lg">
                                   <Radio className="w-5 h-5 text-white" />
@@ -1117,10 +1160,17 @@ export const CoStudyRooms: React.FC<{ onNavigateToBilling?: () => void }> = ({ o
                                 <div className="absolute inset-10 rounded-full border border-white/5" />
                               </div>
                               {/* LIVE badge */}
-                              {isAudioPlayingState && (
+                              {isAudioPlayingState && !isAudioConnecting && (
                                 <span className="absolute -top-1 -right-1 flex items-center gap-1 bg-red-600 text-white text-[9px] font-extrabold px-2 py-0.5 rounded-full shadow-lg">
                                   <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
                                   LIVE
+                                </span>
+                              )}
+                              {/* CONNECTING overlay / badge */}
+                              {isAudioPlayingState && isAudioConnecting && (
+                                <span className="absolute -top-1 -right-1 flex items-center gap-1 bg-amber-500 text-white text-[9px] font-extrabold px-2 py-0.5 rounded-full shadow-lg animate-pulse">
+                                  <span className="w-1.5 h-1.5 rounded-full bg-white animate-ping" />
+                                  CONNECTING
                                 </span>
                               )}
                             </div>
@@ -1128,7 +1178,14 @@ export const CoStudyRooms: React.FC<{ onNavigateToBilling?: () => void }> = ({ o
                             {/* Station info */}
                             <div className="text-center">
                               <p className="text-white font-extrabold text-lg tracking-wide">{musicPreset.name}</p>
-                              <p className="text-indigo-300/70 text-[10px] font-medium mt-0.5">Sri Lanka • FM Radio • Live Stream</p>
+                              {isAudioConnecting ? (
+                                <p className="text-amber-400 text-[10px] font-bold mt-0.5 animate-pulse flex items-center justify-center gap-1">
+                                  <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-ping inline-block" />
+                                  Connecting Stream...
+                                </p>
+                              ) : (
+                                <p className="text-indigo-300/70 text-[10px] font-medium mt-0.5">Sri Lanka • FM Radio • Live Stream</p>
+                              )}
                             </div>
 
                             {/* Play / Pause */}
@@ -1145,9 +1202,16 @@ export const CoStudyRooms: React.FC<{ onNavigateToBilling?: () => void }> = ({ o
                                     }
                                   }
                                 }}
-                                className="h-12 w-12 rounded-full bg-indigo-600 hover:bg-indigo-500 text-white shadow-lg shadow-indigo-600/30 flex items-center justify-center cursor-pointer transition-transform active:scale-90"
+                                disabled={isAudioConnecting}
+                                className="h-12 w-12 rounded-full bg-indigo-600 hover:bg-indigo-500 text-white shadow-lg shadow-indigo-600/30 flex items-center justify-center cursor-pointer transition-transform active:scale-90 disabled:opacity-50 disabled:cursor-not-allowed"
                               >
-                                {isAudioPlayingState ? <Pause className="w-5 h-5" /> : <Play className="w-5 h-5 ml-0.5" />}
+                                {isAudioConnecting ? (
+                                  <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                                ) : isAudioPlayingState ? (
+                                  <Pause className="w-5 h-5" />
+                                ) : (
+                                  <Play className="w-5 h-5 ml-0.5" />
+                                )}
                               </Button>
                             </div>
 
@@ -1172,15 +1236,31 @@ export const CoStudyRooms: React.FC<{ onNavigateToBilling?: () => void }> = ({ o
 
                           {/* Hidden HTML5 audio element */}
                           <audio
+                            key={musicPreset.url}
                             ref={(el) => {
-                              if (el && el !== audioRef.current) {
-                                audioRef.current = el;
+                              audioRef.current = el;
+                              if (el) {
                                 el.volume = 0.8;
-                                el.play().catch(() => {});
                               }
                             }}
                             src={musicPreset.url}
-                            autoPlay
+                            onLoadStart={() => {
+                              if (isAudioPlayingState) {
+                                setIsAudioConnecting(true);
+                              }
+                            }}
+                            onWaiting={() => {
+                              if (isAudioPlayingState) {
+                                setIsAudioConnecting(true);
+                              }
+                            }}
+                            onPlaying={() => setIsAudioConnecting(false)}
+                            onPause={() => setIsAudioConnecting(false)}
+                            onEnded={() => setIsAudioConnecting(false)}
+                            onError={() => {
+                              setIsAudioConnecting(false);
+                              toast.error("Failed to load stream. The radio station might be offline.");
+                            }}
                             style={{ display: "none" }}
                           />
                         </div>
@@ -1210,15 +1290,35 @@ export const CoStudyRooms: React.FC<{ onNavigateToBilling?: () => void }> = ({ o
                             if (isCustomMode) {
                               const videoId = getYoutubeVideoId(customUrl);
                               if (videoId) {
+                                if (audioRef.current) {
+                                  audioRef.current.pause();
+                                  audioRef.current = null;
+                                }
                                 setMusicPreset({
                                   id: "custom",
                                   name: "Custom Stream",
                                   url: `https://www.youtube.com/embed/${videoId}?autoplay=1`
                                 });
                                 setIsMusicPlaying(true);
+                                setIsAudioPlayingState(false);
                                 toast.success("Playing custom YouTube stream!");
+                              } else if (customUrl.trim().startsWith("http://") || customUrl.trim().startsWith("https://")) {
+                                if (audioRef.current) {
+                                  audioRef.current.pause();
+                                  audioRef.current = null;
+                                }
+                                setMusicPreset({
+                                  id: "custom",
+                                  name: "Custom Audio Stream",
+                                  url: customUrl.trim(),
+                                  isRadio: true
+                                } as any);
+                                setIsMusicPlaying(true);
+                                setIsAudioPlayingState(true);
+                                setIsAudioConnecting(true);
+                                toast.success("Playing custom audio stream!");
                               } else {
-                                toast.error("Please enter a valid YouTube URL or ID first.");
+                                toast.error("Please enter a valid YouTube URL, ID, or audio link.");
                               }
                             } else {
                               setIsMusicPlaying(true);
