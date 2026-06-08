@@ -1237,6 +1237,7 @@ export const CoStudyRooms: React.FC<{ onNavigateToBilling?: () => void }> = ({ o
                           {/* Hidden HTML5 audio element */}
                           <audio
                             key={musicPreset.url}
+                            preload="auto"
                             ref={(el) => {
                               audioRef.current = el;
                               if (el) {
