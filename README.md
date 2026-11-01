@@ -126,28 +126,42 @@ A modern, production-ready study planner web application built with React, Tailw
 study-planner/
 ├── src/
 │   ├── app/
-│   │   ├── components/
-│   │   │   └── ui/          # shadcn/ui components
-│   │   └── App.tsx          # Main application component
-│   ├── components/
-│   │   ├── Auth.tsx         # Authentication component
-│   │   ├── Dashboard.tsx    # Dashboard view
-│   │   ├── TasksManager.tsx # Task management
-│   │   ├── SubjectsManager.tsx # Subject management
-│   │   ├── ExamsManager.tsx # Exam tracking
-│   │   └── PomodoroTimer.tsx # Pomodoro timer
-│   ├── contexts/
-│   │   └── AuthContext.tsx  # Authentication context
-│   ├── services/
-│   │   ├── authService.ts   # Auth API calls
-│   │   └── databaseService.ts # Database API calls
-│   ├── lib/
-│   │   └── appwrite.ts      # Appwrite configuration
-│   └── utils/
-│       ├── notifications.ts # Notification helpers
-│       └── dateHelpers.ts   # Date utilities
-├── APPWRITE_SETUP.md        # Appwrite setup guide
-└── README.md                # This file
+│   │   ├── App.tsx                 # Application shell and routing
+│   │   └── components/
+│   │       ├── figma/              # Image fallback components
+│   │       └── ui/                 # Reusable shadcn/ui components
+│   ├── components/                 # Feature and page components
+│   │   ├── Ai*.tsx                 # AI document, notes, quiz, roadmap, and tutor tools
+│   │   ├── Auth.tsx                # Authentication
+│   │   ├── Billing.tsx             # Subscription and billing
+│   │   ├── CoStudyRooms.tsx        # Collaborative study rooms
+│   │   ├── Dashboard.tsx           # Main dashboard
+│   │   ├── ExamsManager.tsx        # Exam tracking
+│   │   ├── PomodoroTimer.tsx       # Focus timer
+│   │   ├── SubjectsManager.tsx     # Subject management
+│   │   └── TasksManager.tsx        # Task management
+│   ├── contexts/                   # React context providers
+│   ├── imports/                    # Imported image assets
+│   ├── lib/appwrite.ts             # Appwrite configuration
+│   ├── main.tsx                    # Application entry point
+│   ├── services/                   # Appwrite and feature service modules
+│   ├── styles/                     # Global styles, themes, and animations
+│   └── utils/                      # Shared utility helpers
+├── appwrite-functions/             # Serverless Appwrite functions
+│   ├── exam-alerts/
+│   ├── stripe-checkout/
+│   ├── stripe-webhook/
+│   └── task-reminders/
+├── public/                         # Static assets and web metadata
+├── scripts/                        # Appwrite setup and maintenance scripts
+├── APPWRITE_SETUP.md               # Appwrite setup guide
+├── APPWRITE_FUNCTIONS.md           # Appwrite functions documentation
+├── DEPLOYMENT.md                   # Deployment instructions
+├── QUICKSTART.md                   # Quick start guide
+├── package.json                    # Project scripts and dependencies
+├── pnpm-workspace.yaml             # pnpm workspace configuration
+├── vite.config.ts                 # Vite configuration
+└── README.md                       # This file
 ```
 
 ## Database Schema
