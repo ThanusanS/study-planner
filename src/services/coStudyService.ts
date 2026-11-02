@@ -219,7 +219,7 @@ class CoStudyService {
     const newRoomData = {
       name: room.name,
       description: room.description,
-      membersCount: 1,
+      membersCount: 0,
       maxMembers: room.maxMembers,
       timerMode: "work",
       isPrivate: room.isPrivate,
