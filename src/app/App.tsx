@@ -15,6 +15,9 @@ import { OnboardingGuide } from "../components/OnboardingGuide";
 import { Billing } from "../components/Billing";
 import { AiDocumentHub } from "../components/AiDocumentHub";
 import { CoStudyRooms } from "../components/CoStudyRooms";
+import { BottomTabBar } from "../components/BottomTabBar";
+import { PWAInstallPrompt } from "../components/PWAInstallPrompt";
+import { PWAUpdatePrompt } from "../components/PWAUpdatePrompt";
 import { PomodoroProvider } from "../contexts/PomodoroContext";
 import { Button } from "./components/ui/button";
 import { Toaster } from "./components/ui/sonner";
@@ -433,8 +436,9 @@ const AppContent: React.FC = () => {
   return (
     <div className="flex flex-col lg:flex-row bg-slate-50 dark:bg-slate-950 min-h-screen">
       <Sidebar currentPage={currentPage} onPageChange={setCurrentPage} />
-      <main className="flex-1 w-full min-w-0 transition-all duration-300">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8 lg:py-10">
+      <BottomTabBar currentPage={currentPage} onPageChange={setCurrentPage} />
+      <main className="flex-1 w-full min-w-0 transition-all duration-300 pb-20 lg:pb-0">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-6 lg:py-10">
           {showOnboarding && (
             <OnboardingGuide
               status={onboardingStatus}
@@ -504,6 +508,8 @@ export default function App() {
       <AuthProvider>
         <PomodoroProvider>
           <AppContent />
+          <PWAInstallPrompt />
+          <PWAUpdatePrompt />
           <Toaster />
         </PomodoroProvider>
       </AuthProvider>

@@ -1,0 +1,54 @@
+{
+  "name": "Study Planner AI",
+  "short_name": "StudyPlanner",
+  "description": "AI-powered study planner with smart scheduling, focus timer & exam prep",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "theme_color": "#6C3AED",
+  "background_color": "#050510",
+  "categories": ["education", "productivity"],
+  "icons": [
+    {
+      "src": "/icons/icon-192x192.svg",
+      "sizes": "192x192",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon-512x512.svg",
+      "sizes": "512x512",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/maskable-icon-512x512.svg",
+      "sizes": "512x512",
+      "type": "image/svg+xml",
+      "purpose": "maskable"
+    },
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Dashboard",
+      "short_name": "Dashboard",
+      "url": "/#dashboard"
+    },
+    {
+      "name": "Tasks",
+      "short_name": "Tasks", 
+      "url": "/#tasks"
+    },
+    {
+      "name": "Pomodoro Timer",
+      "short_name": "Pomodoro",
+      "url": "/#pomodoro"
+    }
+  ]
+}
