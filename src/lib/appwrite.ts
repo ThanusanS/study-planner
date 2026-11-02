@@ -3,9 +3,10 @@ import { Client, Account, Databases, Functions } from "appwrite";
 // Appwrite Configuration
 // IMPORTANT: Replace these with your actual Appwrite project values
 export const appwriteConfig = {
-  endpoint: "https://sgp.cloud.appwrite.io/v1", // Your Appwrite endpoint
-  projectId: "69d4644900361e0d0c92", // Your project ID
-  databaseId: "studyplan", // Your database ID
+  endpoint:
+    import.meta.env.VITE_APPWRITE_ENDPOINT || "https://cloud.appwrite.io/v1",
+  projectId: import.meta.env.VITE_APPWRITE_PROJECT_ID || "",
+  databaseId: import.meta.env.VITE_APPWRITE_DATABASE_ID || "studyplan",
   // Collection IDs
   subjectsCollectionId: "subjects",
   topicsCollectionId: "topics",
