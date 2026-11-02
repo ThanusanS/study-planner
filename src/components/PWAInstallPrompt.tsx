@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Download, X } from "lucide-react";
-import { Button } from "../app/components/ui/button";
+import { X, Download, Wifi, Bell, Smartphone } from "lucide-react";
 
 interface BeforeInstallPromptEvent extends Event {
   prompt: () => Promise<void>;
@@ -11,43 +10,38 @@ export const PWAInstallPrompt: React.FC = () => {
   const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
   const [showBanner, setShowBanner] = useState(false);
   const [isInstalled, setIsInstalled] = useState(false);
+  const [installing, setInstalling] = useState(false);
 
   useEffect(() => {
-    // Check if already installed
+    // Already installed as PWA
     if (window.matchMedia("(display-mode: standalone)").matches) {
       setIsInstalled(true);
       return;
     }
 
-    // Check if user dismissed the banner before
+    // Dismissed recently (wait 7 days)
     const dismissed = localStorage.getItem("pwa-install-dismissed");
-    if (dismissed) {
-      const dismissedAt = parseInt(dismissed, 10);
-      // Show again after 7 days
-      if (Date.now() - dismissedAt < 7 * 24 * 60 * 60 * 1000) return;
-    }
+    if (dismissed && Date.now() - parseInt(dismissed) < 7 * 24 * 60 * 60 * 1000) return;
 
     const handler = (e: Event) => {
       e.preventDefault();
       setDeferredPrompt(e as BeforeInstallPromptEvent);
-      // Show banner after a 3 second delay
       setTimeout(() => setShowBanner(true), 3000);
     };
 
     window.addEventListener("beforeinstallprompt", handler);
-
     return () => window.removeEventListener("beforeinstallprompt", handler);
   }, []);
 
   const handleInstall = async () => {
     if (!deferredPrompt) return;
+    setInstalling(true);
     deferredPrompt.prompt();
     const { outcome } = await deferredPrompt.userChoice;
-    if (outcome === "accepted") {
-      setIsInstalled(true);
-    }
+    if (outcome === "accepted") setIsInstalled(true);
     setDeferredPrompt(null);
     setShowBanner(false);
+    setInstalling(false);
   };
 
   const handleDismiss = () => {
@@ -58,43 +52,106 @@ export const PWAInstallPrompt: React.FC = () => {
   if (isInstalled || !showBanner) return null;
 
   return (
-    <div className="fixed bottom-20 left-4 right-4 md:bottom-6 md:left-auto md:right-6 md:w-96 z-50 animate-in slide-in-from-bottom-4 duration-500">
-      <div className="bg-gradient-to-r from-indigo-600 to-purple-600 rounded-2xl p-4 shadow-2xl shadow-indigo-500/25 border border-indigo-400/20">
-        <div className="flex items-start gap-3">
-          <div className="w-12 h-12 rounded-xl bg-white/15 backdrop-blur-sm flex items-center justify-center shrink-0">
-            <Download className="w-6 h-6 text-white" />
-          </div>
-          <div className="flex-1 min-w-0">
-            <h3 className="text-white font-bold text-sm">Install Study Planner</h3>
-            <p className="text-indigo-100 text-xs mt-0.5 leading-relaxed">
-              Add to your home screen for quick access, offline mode & push notifications!
-            </p>
-            <div className="flex items-center gap-2 mt-3">
-              <Button
-                onClick={handleInstall}
-                size="sm"
-                className="bg-white text-indigo-600 hover:bg-indigo-50 font-bold text-xs h-8 px-4 rounded-lg"
-              >
-                Install App
-              </Button>
-              <Button
+    <>
+      {/* Backdrop blur on mobile */}
+      <div
+        className="fixed inset-0 bg-black/20 backdrop-blur-[2px] z-40 lg:hidden"
+        onClick={handleDismiss}
+      />
+
+      {/* Banner */}
+      <div className="fixed bottom-20 left-3 right-3 md:bottom-8 md:left-auto md:right-6 md:w-[420px] z-50 animate-in slide-in-from-bottom-6 fade-in duration-500">
+        {/* Glow effect */}
+        <div className="absolute -inset-[1px] rounded-2xl bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 opacity-70 blur-[2px]" />
+
+        {/* Card */}
+        <div className="relative bg-zinc-950/95 backdrop-blur-xl rounded-2xl overflow-hidden border border-white/5">
+
+          {/* Top shimmer line */}
+          <div className="absolute top-0 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-indigo-400/60 to-transparent" />
+
+          <div className="p-4">
+            <div className="flex items-center gap-4">
+
+              {/* App icon */}
+              <div className="relative shrink-0">
+                <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-indigo-500 via-purple-600 to-pink-500 flex items-center justify-center shadow-lg shadow-purple-500/30">
+                  <svg viewBox="0 0 24 24" className="w-7 h-7 text-white" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M4.5 8.5 12 5l7.5 3.5-7.5 3.5-7.5-3.5Z" />
+                    <path d="M7 11.5v3.5c0 1.4 2.2 2.5 5 2.5s5-1.1 5-2.5v-3.5" />
+                    <path d="M19.5 9.5v4" />
+                  </svg>
+                </div>
+                {/* Ping dot */}
+                <span className="absolute -top-1 -right-1 w-3 h-3 bg-emerald-400 rounded-full border-2 border-zinc-950 animate-pulse" />
+              </div>
+
+              {/* Text */}
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2">
+                  <h3 className="text-white font-black text-base leading-tight">
+                    Install Study Planner
+                  </h3>
+                </div>
+
+                {/* Features row */}
+                <div className="flex items-center gap-3 mt-1.5 flex-wrap">
+                  {[
+                    { icon: Wifi, label: "Offline" },
+                    { icon: Bell, label: "Notifications" },
+                    { icon: Smartphone, label: "Home Screen" },
+                  ].map(({ icon: Icon, label }) => (
+                    <div key={label} className="flex items-center gap-1 text-zinc-400">
+                      <Icon className="w-3 h-3 text-indigo-400" />
+                      <span className="text-[10px] font-medium">{label}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Dismiss */}
+              <button
                 onClick={handleDismiss}
-                variant="ghost"
-                size="sm"
-                className="text-indigo-100 hover:text-white hover:bg-white/10 text-xs h-8 px-3 rounded-lg"
+                className="text-zinc-600 hover:text-zinc-300 transition-colors p-1 shrink-0 self-start"
               >
-                Not now
-              </Button>
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Divider */}
+            <div className="h-px bg-white/5 my-3" />
+
+            {/* Buttons */}
+            <div className="flex items-center gap-2">
+              <button
+                onClick={handleInstall}
+                disabled={installing}
+                className="flex-1 relative group overflow-hidden h-10 rounded-xl font-bold text-sm text-white transition-all duration-300 active:scale-95"
+              >
+                {/* Button gradient background */}
+                <div className="absolute inset-0 bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 transition-all duration-300 group-hover:from-indigo-500 group-hover:via-purple-500 group-hover:to-pink-500" />
+                {/* Shimmer */}
+                <div className="absolute inset-0 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-700 bg-gradient-to-r from-transparent via-white/10 to-transparent" />
+                <div className="relative flex items-center justify-center gap-2">
+                  {installing ? (
+                    <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  ) : (
+                    <Download className="w-4 h-4" />
+                  )}
+                  {installing ? "Installing..." : "Install App — It's Free"}
+                </div>
+              </button>
+
+              <button
+                onClick={handleDismiss}
+                className="h-10 px-4 rounded-xl text-zinc-400 hover:text-zinc-200 hover:bg-white/5 font-medium text-sm transition-all duration-200"
+              >
+                Later
+              </button>
             </div>
           </div>
-          <button
-            onClick={handleDismiss}
-            className="text-indigo-200 hover:text-white transition-colors p-1"
-          >
-            <X className="w-4 h-4" />
-          </button>
         </div>
       </div>
-    </div>
+    </>
   );
 };
