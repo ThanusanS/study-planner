@@ -94,21 +94,19 @@ A modern, production-ready study planner web application built with React, Tailw
    ```
 
 3. **Set up Appwrite**
-   - Follow the [Appwrite Setup Guide](./APPWRITE_SETUP.md)
-   - Create project and database
-   - Create all required collections
-   - Note your Project ID and Database ID
+   - Copy `.env.example` to `.env`
+   - Set `APPWRITE_PROJECT_ID` and `APPWRITE_API_KEY`
+   - Run `pnpm appwrite:setup` to create the database and all collections
+   - Set the `VITE_APPWRITE_*` values for the browser
+   - Follow the [Appwrite Setup Guide](./APPWRITE_SETUP.md) for details
 
 4. **Configure environment**
-   - Update `src/lib/appwrite.ts` with your credentials:
+   - Keep browser-safe Appwrite values in `.env`:
 
-   ```typescript
-   export const appwriteConfig = {
-     endpoint: "https://cloud.appwrite.io/v1",
-     projectId: "YOUR_PROJECT_ID",
-     databaseId: "YOUR_DATABASE_ID",
-     // ... collection IDs
-   };
+   ```bash
+   VITE_APPWRITE_ENDPOINT=https://cloud.appwrite.io/v1
+   VITE_APPWRITE_PROJECT_ID=YOUR_PROJECT_ID
+   VITE_APPWRITE_DATABASE_ID=studyplan
    ```
 
 5. **Run the development server**

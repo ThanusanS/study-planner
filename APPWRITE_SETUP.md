@@ -28,13 +28,23 @@ This Study Planner application uses Appwrite as the backend service for authenti
 5. Include both your local dev URL and production URL in the allowed redirect flow
 6. The frontend uses Appwrite's OAuth redirect flow, so no Google API key is needed in the browser
 
-## Step 3: Create Database
+## Step 3: Provision the database automatically
 
-1. Go to **Databases** section
-2. Create a new database called `study-planner`
-3. Note your **Database ID**
+The repository includes an idempotent provisioning script. It creates the database,
+all application collections, attributes, and indexes. Create an Appwrite API key
+with database-management permissions, then run:
 
-## Step 4: Create Collections
+```bash
+cp .env.example .env
+# Set APPWRITE_PROJECT_ID and APPWRITE_API_KEY in .env
+pnpm install
+pnpm appwrite:setup
+```
+
+The API key is used only by the setup script and must never be prefixed with
+`VITE_` or exposed to the browser. Running the command again is safe.
+
+## Step 4: Collections created by the script
 
 Create the following collections with these attributes:
 
@@ -171,19 +181,13 @@ Create the following collections with these attributes:
 Update `src/lib/appwrite.ts` with your credentials:
 
 ```typescript
-export const appwriteConfig = {
-  endpoint: "https://cloud.appwrite.io/v1", // Or your self-hosted URL
-  projectId: "YOUR_PROJECT_ID",
-  databaseId: "YOUR_DATABASE_ID",
-  subjectsCollectionId: "subjects",
-  topicsCollectionId: "topics",
-  tasksCollectionId: "tasks",
-  examsCollectionId: "exams",
-  progressLogsCollectionId: "progressLogs",
-  pomodoroSessionsCollectionId: "pomodoroSessions",
-  quizHistoryCollectionId: "quizHistory",
-};
+VITE_APPWRITE_ENDPOINT=https://cloud.appwrite.io/v1
+VITE_APPWRITE_PROJECT_ID=YOUR_PROJECT_ID
+VITE_APPWRITE_DATABASE_ID=studyplan
 ```
+
+The setup script uses the same values without the `VITE_` prefix. See
+`.env.example` for the complete template.
 
 ## Step 6: Configure CORS (Optional)
 
