@@ -64,13 +64,13 @@ class PlanService {
         return await this.checkAndResetCredits(planData);
       }
 
-      // Default Pro Plan Initialization for seamless testing/development
+      // Default Free Plan Initialization for new users
       const newPlanData = {
         userId,
-        plan: "pro" as const,
+        plan: "free" as const,
         status: "active" as const,
-        aiCredits: PLAN_LIMITS.pro.maxCredits,
-        maxCredits: PLAN_LIMITS.pro.maxCredits,
+        aiCredits: PLAN_LIMITS.free.maxCredits,
+        maxCredits: PLAN_LIMITS.free.maxCredits,
         renewalDate: this.calculateNextRenewalDate(new Date(), "monthly"),
         billingCycle: "monthly" as const,
       };
@@ -91,13 +91,13 @@ class PlanService {
       return newPlan;
     } catch (error) {
       console.error("Error fetching user plan:", error);
-      // Fallback to Pro Plan
+      // Fallback to Free Plan
       return {
         userId,
-        plan: "pro",
+        plan: "free",
         status: "active",
-        aiCredits: 500,
-        maxCredits: 500,
+        aiCredits: 10,
+        maxCredits: 10,
         renewalDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
         billingCycle: "monthly",
       };

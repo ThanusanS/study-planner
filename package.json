@@ -6,7 +6,8 @@
   "scripts": {
     "build": "vite build",
     "dev": "vite",
-    "appwrite:setup": "node scripts/appwrite-setup.mjs"
+    "appwrite:setup": "node scripts/appwrite-setup.mjs",
+    "appwrite:full-setup": "node scripts/appwrite-full-setup.mjs"
   },
   "dependencies": {
     "@emotion/react": "11.14.0",
