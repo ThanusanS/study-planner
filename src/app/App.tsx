@@ -243,6 +243,11 @@ const Sidebar: React.FC<{
                   <div className="text-xs font-bold truncate text-foreground leading-tight max-w-[80px]">
                     {user?.name || "Test User"}
                   </div>
+                  {activePlan === "free" && (
+                    <span className="text-[8px] bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 font-extrabold px-1 rounded-sm shrink-0">
+                      FREE
+                    </span>
+                  )}
                   {activePlan === "pro" && (
                     <span className="text-[8px] bg-violet-500/20 text-violet-600 dark:text-violet-400 font-extrabold px-1 rounded-sm shrink-0">
                       PRO

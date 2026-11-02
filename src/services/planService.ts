@@ -60,6 +60,21 @@ class PlanService {
           renewalDate: planDoc.renewalDate,
           billingCycle: planDoc.billingCycle,
         };
+
+        // Migration: downgrade stale auto-created pro plans to free
+        // (Old code defaulted new users to pro instead of free)
+        if (
+          planData.plan === "pro" &&
+          planData.status === "active" &&
+          planData.aiCredits === 500 &&
+          planData.maxCredits === 500
+        ) {
+          planData.plan = "free";
+          planData.aiCredits = PLAN_LIMITS.free.maxCredits;
+          planData.maxCredits = PLAN_LIMITS.free.maxCredits;
+          await this.savePlanState(planData);
+        }
+
         // Run monthly reset check
         return await this.checkAndResetCredits(planData);
       }
