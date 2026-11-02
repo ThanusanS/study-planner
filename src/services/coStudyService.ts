@@ -183,18 +183,35 @@ class CoStudyService {
           Query.orderDesc("createdAt"),
           Query.limit(100)
         ]);
+
+        // Fetch actual online members to get accurate counts
+        let allMembers: any[] = [];
+        try {
+          const membersResponse = await databases.listDocuments(databaseId, studyRoomMembersCollectionId, [
+            Query.limit(500)
+          ]);
+          allMembers = membersResponse.documents;
+        } catch (e) {
+          // Silently fall back to stored counts if members fetch fails
+        }
+
         return response.documents
-          .map(d => ({
-            $id: d.$id,
-            name: d.name,
-            description: d.description,
-            membersCount: d.membersCount || 0,
-            maxMembers: d.maxMembers || 10,
-            timerMode: d.timerMode || "work",
-            isPrivate: d.isPrivate || false,
-            creatorId: d.creatorId,
-            createdAt: d.createdAt
-          }))
+          .map(d => {
+            const actualCount = allMembers.length > 0
+              ? allMembers.filter((m: any) => m.roomId === d.$id).length
+              : (d.membersCount || 0);
+            return {
+              $id: d.$id,
+              name: d.name,
+              description: d.description,
+              membersCount: actualCount,
+              maxMembers: d.maxMembers || 10,
+              timerMode: d.timerMode || "work",
+              isPrivate: d.isPrivate || false,
+              creatorId: d.creatorId,
+              createdAt: d.createdAt
+            };
+          })
           .filter(r => !r.isPrivate || r.creatorId === currentUserId);
       } catch (err) {
         console.error("Failed to fetch rooms from Appwrite:", err);

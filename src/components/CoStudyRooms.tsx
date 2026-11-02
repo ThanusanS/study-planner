@@ -43,9 +43,9 @@ import { toast } from "sonner";
 
 // Pre-defined YouTube Embed streams for Lofi/Ambient Music and FM Radios
 const LOFI_PRESETS = [
-  { id: "lofi-girl", name: "Lofi Girl Radio", url: "https://www.youtube.com/embed/lTRiuFIWV54?autoplay=1" },
-  { id: "synthwave", name: "Synthwave Radio", url: "https://www.youtube.com/embed/F3Hk1Q-8mXk?autoplay=1" },
-  { id: "piano", name: "Classical Study", url: "https://www.youtube.com/embed/z0ESIdRVkOg?autoplay=1" },
+  { id: "lofi-girl", name: "Lofi Girl Radio", url: "https://www.youtube.com/embed/jfKfPfyJRdk?autoplay=1" },
+  { id: "synthwave", name: "Synthwave Radio", url: "https://www.youtube.com/embed/4xDzrJKXOOY?autoplay=1" },
+  { id: "piano", name: "Classical Study", url: "https://www.youtube.com/embed/jXAEIWcGXwE?autoplay=1" },
   { id: "rain", name: "Rain Ambient", url: "https://www.youtube.com/embed/WJ3-F02-F_Y?autoplay=1" },
   { id: "sirasa-fm", name: "Sirasa FM", url: "https://radio.garden/api/ara/content/listen/ZBLzLpft/channel.mp3", isRadio: true },
   { id: "hiru-fm", name: "Hiru FM", url: "https://radio.garden/api/ara/content/listen/xyIbSGbn/channel.mp3", isRadio: true },
